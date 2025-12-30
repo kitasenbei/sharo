@@ -4,6 +4,14 @@
 #include <string.h>
 #include <time.h>
 
+// TCP sockets (POSIX)
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
@@ -403,6 +411,106 @@ static Value popNative(int argCount, Value* args) {
     return array->elements[--array->count];
 }
 
+// ============ TCP Socket Native Functions ============
+
+// tcpListen(port) -> socket ptr or nil on error
+static Value tcpListenNative(int argCount, Value* args) {
+    (void)argCount;
+    int port = (int)AS_INT(args[0]);
+
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        return NIL_VAL;
+    }
+
+    // Allow address reuse
+    int opt = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(port);
+
+    if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        close(sockfd);
+        return NIL_VAL;
+    }
+
+    if (listen(sockfd, 10) < 0) {
+        close(sockfd);
+        return NIL_VAL;
+    }
+
+    return INT_VAL(sockfd);
+}
+
+// tcpAccept(socket) -> client socket or nil
+static Value tcpAcceptNative(int argCount, Value* args) {
+    (void)argCount;
+    int sockfd = (int)AS_INT(args[0]);
+
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+
+    int clientfd = accept(sockfd, (struct sockaddr*)&client_addr, &client_len);
+    if (clientfd < 0) {
+        return NIL_VAL;
+    }
+
+    return INT_VAL(clientfd);
+}
+
+// tcpRecv(socket, maxLen) -> string or nil
+static Value tcpRecvNative(int argCount, Value* args) {
+    (void)argCount;
+    int sockfd = (int)AS_INT(args[0]);
+    int maxLen = (int)AS_INT(args[1]);
+
+    char* buffer = malloc(maxLen + 1);
+    if (!buffer) return NIL_VAL;
+
+    ssize_t received = recv(sockfd, buffer, maxLen, 0);
+    if (received <= 0) {
+        free(buffer);
+        return NIL_VAL;
+    }
+
+    buffer[received] = '\0';
+    ObjString* str = copyString(buffer, (int)received);
+    free(buffer);
+    return OBJ_VAL(str);
+}
+
+// tcpSend(socket, data) -> bytes sent or -1
+static Value tcpSendNative(int argCount, Value* args) {
+    (void)argCount;
+    int sockfd = (int)AS_INT(args[0]);
+    ObjString* data = AS_STRING(args[1]);
+
+    ssize_t sent = send(sockfd, data->chars, data->length, 0);
+    return INT_VAL(sent);
+}
+
+// tcpClose(socket)
+static Value tcpCloseNative(int argCount, Value* args) {
+    (void)argCount;
+    int sockfd = (int)AS_INT(args[0]);
+    close(sockfd);
+    return NIL_VAL;
+}
+
+// ============ String Native Functions ============
+
+// chr(code) -> single character string
+static Value chrNative(int argCount, Value* args) {
+    (void)argCount;
+    int code = (int)AS_INT(args[0]);
+    char c = (char)code;
+    return OBJ_VAL(copyString(&c, 1));
+}
+
 static void defineNative(const char* name, NativeFn function) {
     push(OBJ_VAL(copyString(name, (int)strlen(name))));
     push(OBJ_VAL(newNative(function)));
@@ -459,6 +567,16 @@ void initVM(void) {
     defineNative("len", lenNative);
     defineNative("push", pushNative);
     defineNative("pop", popNative);
+
+    // TCP sockets
+    defineNative("tcpListen", tcpListenNative);
+    defineNative("tcpAccept", tcpAcceptNative);
+    defineNative("tcpRecv", tcpRecvNative);
+    defineNative("tcpSend", tcpSendNative);
+    defineNative("tcpClose", tcpCloseNative);
+
+    // String functions
+    defineNative("chr", chrNative);
 }
 
 void freeVM(void) {

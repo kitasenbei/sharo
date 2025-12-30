@@ -1,0 +1,112 @@
+// Simple HTTP Server in Sharo
+// Serves a Hello World HTML page on port 8080
+
+PORT := 8080
+
+// CRLF for HTTP
+CR := chr(13)
+LF := chr(10)
+CRLF := CR + LF
+
+// HTML response
+html := "<!DOCTYPE html>
+<html>
+<head>
+    <title>Sharo HTTP Server</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            text-align: center;
+            padding: 40px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        h1 { font-size: 3em; margin-bottom: 10px; }
+        p { font-size: 1.2em; opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class=\"container\">
+        <h1>Hello from Sharo!</h1>
+        <p>This page was served by a Sharo HTTP server.</p>
+    </div>
+</body>
+</html>"
+
+// Build HTTP response
+buildResponse(body str) str {
+    contentLen := len(body)
+    response := "HTTP/1.1 200 OK" + CRLF
+    response = response + "Content-Type: text/html" + CRLF
+    response = response + "Content-Length: " + intToStr(contentLen) + CRLF
+    response = response + "Connection: close" + CRLF
+    response = response + CRLF
+    response = response + body
+    return response
+}
+
+// Convert int to string
+intToStr(n int) str {
+    if n == 0 {
+        return "0"
+    }
+    result := ""
+    temp := n
+    for temp > 0 {
+        digit := temp % 10
+        if digit == 0 { result = "0" + result }
+        else if digit == 1 { result = "1" + result }
+        else if digit == 2 { result = "2" + result }
+        else if digit == 3 { result = "3" + result }
+        else if digit == 4 { result = "4" + result }
+        else if digit == 5 { result = "5" + result }
+        else if digit == 6 { result = "6" + result }
+        else if digit == 7 { result = "7" + result }
+        else if digit == 8 { result = "8" + result }
+        else if digit == 9 { result = "9" + result }
+        temp = temp / 10
+    }
+    return result
+}
+
+// Main server
+print("Starting Sharo HTTP server on port 8080...")
+print("Open http://localhost:8080 in your browser")
+print("Press Ctrl+C to stop")
+
+server := tcpListen(PORT)
+if server == nil {
+    print("Failed to start server!")
+} else {
+    print("Server listening...")
+
+    running := true
+    for running {
+        // Accept client connection
+        client := tcpAccept(server)
+        if client != nil {
+            // Read request (we ignore it for this simple server)
+            request := tcpRecv(client, 4096)
+            if request != nil {
+                print("Received request")
+
+                // Send response
+                response := buildResponse(html)
+                tcpSend(client, response)
+            }
+            tcpClose(client)
+        }
+    }
+
+    tcpClose(server)
+}
