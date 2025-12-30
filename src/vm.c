@@ -579,6 +579,646 @@ static InterpretResult run(void) {
         } \
     } while (false)
 
+#ifdef COMPUTED_GOTO
+    // Dispatch table for computed goto - must match OpCode enum order
+    static void* dispatch_table[] = {
+        &&do_CONSTANT,       // OP_CONSTANT
+        &&do_NIL,            // OP_NIL
+        &&do_TRUE,           // OP_TRUE
+        &&do_FALSE,          // OP_FALSE
+        &&do_POP,            // OP_POP
+        &&do_DUP,            // OP_DUP
+        &&do_GET_LOCAL,      // OP_GET_LOCAL
+        &&do_SET_LOCAL,      // OP_SET_LOCAL
+        &&do_GET_GLOBAL,     // OP_GET_GLOBAL
+        &&do_DEFINE_GLOBAL,  // OP_DEFINE_GLOBAL
+        &&do_SET_GLOBAL,     // OP_SET_GLOBAL
+        &&do_GET_UPVALUE,    // OP_GET_UPVALUE
+        &&do_SET_UPVALUE,    // OP_SET_UPVALUE
+        &&do_UNUSED,         // OP_GET_PROPERTY (unused)
+        &&do_UNUSED,         // OP_SET_PROPERTY (unused)
+        &&do_EQUAL,          // OP_EQUAL
+        &&do_NOT_EQUAL,      // OP_NOT_EQUAL
+        &&do_GREATER,        // OP_GREATER
+        &&do_GREATER_EQUAL,  // OP_GREATER_EQUAL
+        &&do_LESS,           // OP_LESS
+        &&do_LESS_EQUAL,     // OP_LESS_EQUAL
+        &&do_ADD_INT,        // OP_ADD_INT
+        &&do_SUBTRACT_INT,   // OP_SUBTRACT_INT
+        &&do_MULTIPLY_INT,   // OP_MULTIPLY_INT
+        &&do_DIVIDE_INT,     // OP_DIVIDE_INT
+        &&do_MODULO_INT,     // OP_MODULO_INT
+        &&do_NEGATE_INT,     // OP_NEGATE_INT
+        &&do_ADD_FLOAT,      // OP_ADD_FLOAT
+        &&do_SUBTRACT_FLOAT, // OP_SUBTRACT_FLOAT
+        &&do_MULTIPLY_FLOAT, // OP_MULTIPLY_FLOAT
+        &&do_DIVIDE_FLOAT,   // OP_DIVIDE_FLOAT
+        &&do_NEGATE_FLOAT,   // OP_NEGATE_FLOAT
+        &&do_ADD,            // OP_ADD
+        &&do_SUBTRACT,       // OP_SUBTRACT
+        &&do_MULTIPLY,       // OP_MULTIPLY
+        &&do_DIVIDE,         // OP_DIVIDE
+        &&do_MODULO,         // OP_MODULO
+        &&do_NEGATE,         // OP_NEGATE
+        &&do_NOT,            // OP_NOT
+        &&do_INT_TO_FLOAT,   // OP_INT_TO_FLOAT
+        &&do_FLOAT_TO_INT,   // OP_FLOAT_TO_INT
+        &&do_JUMP,           // OP_JUMP
+        &&do_JUMP_IF_FALSE,  // OP_JUMP_IF_FALSE
+        &&do_LOOP,           // OP_LOOP
+        &&do_CALL,           // OP_CALL
+        &&do_CLOSURE,        // OP_CLOSURE
+        &&do_CLOSE_UPVALUE,  // OP_CLOSE_UPVALUE
+        &&do_RETURN,         // OP_RETURN
+        &&do_UNUSED,         // OP_NATIVE_CALL (unused)
+        &&do_PRINT,          // OP_PRINT
+        &&do_STRUCT_DEF,     // OP_STRUCT_DEF
+        &&do_STRUCT_FIELD,   // OP_STRUCT_FIELD
+        &&do_UNUSED,         // OP_STRUCT_CALL (unused)
+        &&do_GET_FIELD,      // OP_GET_FIELD
+        &&do_SET_FIELD,      // OP_SET_FIELD
+        &&do_ARRAY,          // OP_ARRAY
+        &&do_INDEX_GET,      // OP_INDEX_GET
+        &&do_INDEX_SET,      // OP_INDEX_SET
+        &&do_METHOD,         // OP_METHOD
+        &&do_INVOKE,         // OP_INVOKE
+        &&do_UNUSED,         // OP_GET_SELF (unused)
+        &&do_IMPORT,         // OP_IMPORT
+    };
+
+#define DISPATCH() \
+    do { \
+        DEBUG_TRACE(); \
+        goto *dispatch_table[READ_BYTE()]; \
+    } while (false)
+
+#ifdef DEBUG_TRACE_EXECUTION
+#define DEBUG_TRACE() \
+    do { \
+        printf("          "); \
+        for (Value* slot = vm.stack; slot < vm.stackTop; slot++) { \
+            printf("[ "); \
+            printValue(*slot); \
+            printf(" ]"); \
+        } \
+        printf("\n"); \
+        disassembleInstruction(frame->closure->function->chunk, \
+            (int)(frame->ip - frame->closure->function->chunk->code)); \
+    } while (false)
+#else
+#define DEBUG_TRACE() do {} while (false)
+#endif
+
+    // Start dispatch
+    DISPATCH();
+
+    do_UNUSED:
+        runtimeError("Invalid opcode.");
+        return INTERPRET_RUNTIME_ERROR;
+
+    do_CONSTANT: {
+        Value constant = READ_CONSTANT();
+        push(constant);
+        DISPATCH();
+    }
+    do_NIL:   push(NIL_VAL); DISPATCH();
+    do_TRUE:  push(BOOL_VAL(true)); DISPATCH();
+    do_FALSE: push(BOOL_VAL(false)); DISPATCH();
+    do_POP:   pop(); DISPATCH();
+    do_DUP:   push(peek(0)); DISPATCH();
+
+    do_GET_LOCAL: {
+        uint8_t slot = READ_BYTE();
+        push(frame->slots[slot]);
+        DISPATCH();
+    }
+    do_SET_LOCAL: {
+        uint8_t slot = READ_BYTE();
+        frame->slots[slot] = peek(0);
+        DISPATCH();
+    }
+    do_GET_GLOBAL: {
+        ObjString* name = READ_STRING();
+        Value value;
+        if (!tableGet(&vm.globals, name, &value)) {
+            runtimeError("Undefined variable '%s'.", name->chars);
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        push(value);
+        DISPATCH();
+    }
+    do_DEFINE_GLOBAL: {
+        ObjString* name = READ_STRING();
+        tableSet(&vm.globals, name, peek(0));
+        pop();
+        DISPATCH();
+    }
+    do_SET_GLOBAL: {
+        ObjString* name = READ_STRING();
+        if (tableSet(&vm.globals, name, peek(0))) {
+            tableDelete(&vm.globals, name);
+            runtimeError("Undefined variable '%s'.", name->chars);
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        DISPATCH();
+    }
+    do_GET_UPVALUE: {
+        uint8_t slot = READ_BYTE();
+        push(*frame->closure->upvalues[slot]->location);
+        DISPATCH();
+    }
+    do_SET_UPVALUE: {
+        uint8_t slot = READ_BYTE();
+        *frame->closure->upvalues[slot]->location = peek(0);
+        DISPATCH();
+    }
+
+    do_EQUAL: {
+        Value b = pop();
+        Value a = pop();
+        push(BOOL_VAL(valuesEqual(a, b)));
+        DISPATCH();
+    }
+    do_NOT_EQUAL: {
+        Value b = pop();
+        Value a = pop();
+        push(BOOL_VAL(!valuesEqual(a, b)));
+        DISPATCH();
+    }
+    do_GREATER:       BINARY_OP_NUMERIC(BOOL_VAL, >); DISPATCH();
+    do_GREATER_EQUAL: BINARY_OP_NUMERIC(BOOL_VAL, >=); DISPATCH();
+    do_LESS:          BINARY_OP_NUMERIC(BOOL_VAL, <); DISPATCH();
+    do_LESS_EQUAL:    BINARY_OP_NUMERIC(BOOL_VAL, <=); DISPATCH();
+
+    do_ADD_INT:      BINARY_OP_INT(+); DISPATCH();
+    do_SUBTRACT_INT: BINARY_OP_INT(-); DISPATCH();
+    do_MULTIPLY_INT: BINARY_OP_INT(*); DISPATCH();
+    do_DIVIDE_INT:   BINARY_OP_INT(/); DISPATCH();
+    do_MODULO_INT:   BINARY_OP_INT(%); DISPATCH();
+    do_NEGATE_INT: {
+        if (!IS_INT(peek(0))) {
+            runtimeError("Operand must be an integer.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        push(INT_VAL(-AS_INT(pop())));
+        DISPATCH();
+    }
+
+    do_ADD_FLOAT:      BINARY_OP_FLOAT(+); DISPATCH();
+    do_SUBTRACT_FLOAT: BINARY_OP_FLOAT(-); DISPATCH();
+    do_MULTIPLY_FLOAT: BINARY_OP_FLOAT(*); DISPATCH();
+    do_DIVIDE_FLOAT:   BINARY_OP_FLOAT(/); DISPATCH();
+    do_NEGATE_FLOAT: {
+        if (!IS_FLOAT(peek(0))) {
+            runtimeError("Operand must be a float.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        push(FLOAT_VAL(-AS_FLOAT(pop())));
+        DISPATCH();
+    }
+
+    do_ADD: {
+        if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
+            concatenate();
+        } else if (IS_INT(peek(0)) && IS_INT(peek(1))) {
+            int64_t b = AS_INT(pop());
+            int64_t a = AS_INT(pop());
+            push(INT_VAL(a + b));
+        } else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1))) {
+            double b = AS_NUMBER(pop());
+            double a = AS_NUMBER(pop());
+            push(FLOAT_VAL(a + b));
+        } else {
+            runtimeError("Operands must be two numbers or two strings.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        DISPATCH();
+    }
+    do_SUBTRACT: {
+        if (IS_INT(peek(0)) && IS_INT(peek(1))) {
+            int64_t b = AS_INT(pop());
+            int64_t a = AS_INT(pop());
+            push(INT_VAL(a - b));
+        } else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1))) {
+            double b = AS_NUMBER(pop());
+            double a = AS_NUMBER(pop());
+            push(FLOAT_VAL(a - b));
+        } else {
+            runtimeError("Operands must be numbers.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        DISPATCH();
+    }
+    do_MULTIPLY: {
+        if (IS_INT(peek(0)) && IS_INT(peek(1))) {
+            int64_t b = AS_INT(pop());
+            int64_t a = AS_INT(pop());
+            push(INT_VAL(a * b));
+        } else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1))) {
+            double b = AS_NUMBER(pop());
+            double a = AS_NUMBER(pop());
+            push(FLOAT_VAL(a * b));
+        } else {
+            runtimeError("Operands must be numbers.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        DISPATCH();
+    }
+    do_DIVIDE: {
+        if (IS_INT(peek(0)) && IS_INT(peek(1))) {
+            int64_t b = AS_INT(pop());
+            int64_t a = AS_INT(pop());
+            if (b == 0) {
+                runtimeError("Division by zero.");
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            push(INT_VAL(a / b));
+        } else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1))) {
+            double b = AS_NUMBER(pop());
+            double a = AS_NUMBER(pop());
+            push(FLOAT_VAL(a / b));
+        } else {
+            runtimeError("Operands must be numbers.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        DISPATCH();
+    }
+    do_MODULO: {
+        if (!IS_INT(peek(0)) || !IS_INT(peek(1))) {
+            runtimeError("Operands must be integers for modulo.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        int64_t b = AS_INT(pop());
+        int64_t a = AS_INT(pop());
+        if (b == 0) {
+            runtimeError("Division by zero.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        push(INT_VAL(a % b));
+        DISPATCH();
+    }
+    do_NEGATE: {
+        if (IS_INT(peek(0))) {
+            push(INT_VAL(-AS_INT(pop())));
+        } else if (IS_FLOAT(peek(0))) {
+            push(FLOAT_VAL(-AS_FLOAT(pop())));
+        } else {
+            runtimeError("Operand must be a number.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        DISPATCH();
+    }
+
+    do_NOT:
+        push(BOOL_VAL(isFalsey(pop())));
+        DISPATCH();
+
+    do_INT_TO_FLOAT: {
+        if (!IS_INT(peek(0))) {
+            runtimeError("Expected integer for conversion.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        push(FLOAT_VAL((double)AS_INT(pop())));
+        DISPATCH();
+    }
+    do_FLOAT_TO_INT: {
+        if (!IS_FLOAT(peek(0))) {
+            runtimeError("Expected float for conversion.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        push(INT_VAL((int64_t)AS_FLOAT(pop())));
+        DISPATCH();
+    }
+
+    do_JUMP: {
+        uint16_t offset = READ_SHORT();
+        frame->ip += offset;
+        DISPATCH();
+    }
+    do_JUMP_IF_FALSE: {
+        uint16_t offset = READ_SHORT();
+        if (isFalsey(peek(0))) frame->ip += offset;
+        DISPATCH();
+    }
+    do_LOOP: {
+        uint16_t offset = READ_SHORT();
+        frame->ip -= offset;
+        DISPATCH();
+    }
+
+    do_CALL: {
+        int argCount = READ_BYTE();
+        Value callee = peek(argCount);
+        if (IS_NATIVE(callee)) {
+            NativeFn native = AS_NATIVE(callee);
+            Value result = native(argCount, vm.stackTop - argCount);
+            vm.stackTop -= argCount + 1;
+            push(result);
+        } else if (IS_CLOSURE(callee)) {
+            ObjClosure* closure = AS_CLOSURE(callee);
+            if (argCount != closure->function->arity) {
+                runtimeError("Expected %d arguments but got %d.",
+                             closure->function->arity, argCount);
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            if (vm.frameCount == FRAMES_MAX) {
+                runtimeError("Stack overflow.");
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            CallFrame* newFrame = &vm.frames[vm.frameCount++];
+            newFrame->closure = closure;
+            newFrame->ip = closure->function->chunk->code;
+            newFrame->slots = vm.stackTop - argCount - 1;
+            frame = newFrame;
+        } else if (IS_STRUCT_DEF(callee)) {
+            ObjStructDef* def = AS_STRUCT_DEF(callee);
+            if (argCount != def->fieldCount) {
+                runtimeError("Expected %d arguments but got %d.",
+                             def->fieldCount, argCount);
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            ObjStruct* instance = newStruct(def);
+            for (int i = 0; i < argCount; i++) {
+                instance->fields[i] = peek(argCount - 1 - i);
+            }
+            vm.stackTop -= argCount + 1;
+            push(OBJ_VAL(instance));
+        } else if (IS_BOUND_METHOD(callee)) {
+            ObjBoundMethod* bound = AS_BOUND_METHOD(callee);
+            ObjClosure* closure = bound->method;
+            if (argCount != closure->function->arity) {
+                runtimeError("Expected %d arguments but got %d.",
+                             closure->function->arity, argCount);
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            if (vm.frameCount == FRAMES_MAX) {
+                runtimeError("Stack overflow.");
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            vm.stackTop[-argCount - 1] = bound->receiver;
+            CallFrame* newFrame = &vm.frames[vm.frameCount++];
+            newFrame->closure = closure;
+            newFrame->ip = closure->function->chunk->code;
+            newFrame->slots = vm.stackTop - argCount - 1;
+            frame = newFrame;
+        } else {
+            runtimeError("Can only call functions.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        DISPATCH();
+    }
+
+    do_CLOSURE: {
+        ObjFunction* function = AS_FUNCTION(READ_CONSTANT());
+        ObjClosure* closure = newClosure(function);
+        push(OBJ_VAL(closure));
+        for (int i = 0; i < closure->upvalueCount; i++) {
+            uint8_t isLocal = READ_BYTE();
+            uint8_t index = READ_BYTE();
+            if (isLocal) {
+                closure->upvalues[i] = captureUpvalue(frame->slots + index);
+            } else {
+                closure->upvalues[i] = frame->closure->upvalues[index];
+            }
+        }
+        DISPATCH();
+    }
+
+    do_CLOSE_UPVALUE:
+        closeUpvalues(vm.stackTop - 1);
+        pop();
+        DISPATCH();
+
+    do_RETURN: {
+        Value result = pop();
+        closeUpvalues(frame->slots);
+        vm.frameCount--;
+        if (vm.frameCount == 0) {
+            pop();
+            return INTERPRET_OK;
+        }
+        vm.stackTop = frame->slots;
+        push(result);
+        frame = &vm.frames[vm.frameCount - 1];
+        DISPATCH();
+    }
+
+    do_PRINT: {
+        printValue(pop());
+        printf("\n");
+        DISPATCH();
+    }
+
+    do_ARRAY: {
+        int count = READ_BYTE();
+        ObjArray* array = newArray();
+        push(OBJ_VAL(array));
+        for (int i = count - 1; i >= 0; i--) {
+            writeArray(array, peek(i + 1));
+        }
+        vm.stackTop -= count + 1;
+        push(OBJ_VAL(array));
+        DISPATCH();
+    }
+
+    do_INDEX_GET: {
+        Value indexVal = pop();
+        Value arrayVal = pop();
+        if (!IS_ARRAY(arrayVal)) {
+            runtimeError("Can only index arrays.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        if (!IS_INT(indexVal)) {
+            runtimeError("Array index must be an integer.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        ObjArray* array = AS_ARRAY(arrayVal);
+        int64_t index = AS_INT(indexVal);
+        if (index < 0 || index >= array->count) {
+            runtimeError("Array index %lld out of bounds [0, %d).",
+                         (long long)index, array->count);
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        push(array->elements[index]);
+        DISPATCH();
+    }
+
+    do_INDEX_SET: {
+        Value value = pop();
+        Value indexVal = pop();
+        Value arrayVal = pop();
+        if (!IS_ARRAY(arrayVal)) {
+            runtimeError("Can only index arrays.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        if (!IS_INT(indexVal)) {
+            runtimeError("Array index must be an integer.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        ObjArray* array = AS_ARRAY(arrayVal);
+        int64_t index = AS_INT(indexVal);
+        if (index < 0 || index >= array->count) {
+            runtimeError("Array index %lld out of bounds [0, %d).",
+                         (long long)index, array->count);
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        array->elements[index] = value;
+        push(value);
+        DISPATCH();
+    }
+
+    do_STRUCT_DEF: {
+        int fieldCount = READ_BYTE();
+        ObjString* name = READ_STRING();
+        ObjStructDef* def = newStructDef(name);
+        def->fieldCount = fieldCount;
+        def->fieldNames = ALLOCATE(ObjString*, fieldCount);
+        for (int i = 0; i < fieldCount; i++) {
+            def->fieldNames[i] = NULL;
+        }
+        push(OBJ_VAL(def));
+        DISPATCH();
+    }
+
+    do_STRUCT_FIELD: {
+        ObjString* fieldName = READ_STRING();
+        ObjStructDef* def = AS_STRUCT_DEF(peek(0));
+        for (int i = 0; i < def->fieldCount; i++) {
+            if (def->fieldNames[i] == NULL) {
+                def->fieldNames[i] = fieldName;
+                break;
+            }
+        }
+        DISPATCH();
+    }
+
+    do_GET_FIELD: {
+        if (!IS_STRUCT(peek(0))) {
+            runtimeError("Only struct instances have fields.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        Value receiver = peek(0);
+        ObjStruct* instance = AS_STRUCT(receiver);
+        ObjString* name = READ_STRING();
+        int fieldIndex = -1;
+        for (int i = 0; i < instance->definition->fieldCount; i++) {
+            if (instance->definition->fieldNames[i] == name) {
+                fieldIndex = i;
+                break;
+            }
+        }
+        if (fieldIndex != -1) {
+            pop();
+            push(instance->fields[fieldIndex]);
+            DISPATCH();
+        }
+        Value method;
+        if (tableGet(&instance->definition->methods, name, &method)) {
+            pop();
+            ObjBoundMethod* bound = newBoundMethod(receiver, AS_CLOSURE(method));
+            push(OBJ_VAL(bound));
+            DISPATCH();
+        }
+        runtimeError("Undefined property '%s'.", name->chars);
+        return INTERPRET_RUNTIME_ERROR;
+    }
+
+    do_SET_FIELD: {
+        if (!IS_STRUCT(peek(1))) {
+            runtimeError("Only struct instances have fields.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        ObjStruct* instance = AS_STRUCT(peek(1));
+        ObjString* name = READ_STRING();
+        Value value = pop();
+        int fieldIndex = -1;
+        for (int i = 0; i < instance->definition->fieldCount; i++) {
+            if (instance->definition->fieldNames[i] == name) {
+                fieldIndex = i;
+                break;
+            }
+        }
+        if (fieldIndex == -1) {
+            runtimeError("Undefined field '%s'.", name->chars);
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        instance->fields[fieldIndex] = value;
+        pop();
+        push(value);
+        DISPATCH();
+    }
+
+    do_METHOD: {
+        ObjString* name = READ_STRING();
+        Value method = peek(0);
+        ObjStructDef* def = AS_STRUCT_DEF(peek(1));
+        tableSet(&def->methods, name, method);
+        pop();
+        DISPATCH();
+    }
+
+    do_INVOKE: {
+        ObjString* methodName = READ_STRING();
+        int argCount = READ_BYTE();
+        Value receiver = peek(argCount);
+        if (!IS_STRUCT(receiver)) {
+            runtimeError("Only struct instances have methods.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        ObjStruct* instance = AS_STRUCT(receiver);
+        Value method;
+        if (!tableGet(&instance->definition->methods, methodName, &method)) {
+            runtimeError("Undefined method '%s'.", methodName->chars);
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        ObjClosure* closure = AS_CLOSURE(method);
+        if (argCount != closure->function->arity) {
+            runtimeError("Expected %d arguments but got %d.",
+                closure->function->arity, argCount);
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        if (vm.frameCount == FRAMES_MAX) {
+            runtimeError("Stack overflow.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        CallFrame* newFrame = &vm.frames[vm.frameCount++];
+        newFrame->closure = closure;
+        newFrame->ip = closure->function->chunk->code;
+        newFrame->slots = vm.stackTop - argCount - 1;
+        frame = newFrame;
+        DISPATCH();
+    }
+
+    do_IMPORT: {
+        ObjString* path = READ_STRING();
+        char* source = readFile(path->chars);
+        if (source == NULL) {
+            runtimeError("Could not open module '%s'.", path->chars);
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        ObjFunction* moduleFunc = compile(source);
+        free(source);
+        if (moduleFunc == NULL) {
+            runtimeError("Error compiling module '%s'.", path->chars);
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        push(OBJ_VAL(moduleFunc));
+        ObjClosure* moduleClosure = newClosure(moduleFunc);
+        pop();
+        push(OBJ_VAL(moduleClosure));
+        CallFrame* moduleFrame = &vm.frames[vm.frameCount++];
+        moduleFrame->closure = moduleClosure;
+        moduleFrame->ip = moduleFunc->chunk->code;
+        moduleFrame->slots = vm.stackTop - 1;
+        frame = moduleFrame;
+        DISPATCH();
+    }
+
+#undef DISPATCH
+#undef DEBUG_TRACE
+
+#else // !COMPUTED_GOTO - Fall back to switch dispatch
+
     for (;;) {
 #ifdef DEBUG_TRACE_EXECUTION
         printf("          ");
@@ -1193,6 +1833,8 @@ static InterpretResult run(void) {
                 return INTERPRET_RUNTIME_ERROR;
         }
     }
+
+#endif // COMPUTED_GOTO
 
 #undef READ_BYTE
 #undef READ_SHORT
