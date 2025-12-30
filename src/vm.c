@@ -644,6 +644,15 @@ static InterpretResult run(void) {
         &&do_INVOKE,         // OP_INVOKE
         &&do_UNUSED,         // OP_GET_SELF (unused)
         &&do_IMPORT,         // OP_IMPORT
+        // Superinstructions
+        &&do_GET_LOCAL_0,    // OP_GET_LOCAL_0
+        &&do_GET_LOCAL_1,    // OP_GET_LOCAL_1
+        &&do_GET_LOCAL_2,    // OP_GET_LOCAL_2
+        &&do_GET_LOCAL_3,    // OP_GET_LOCAL_3
+        &&do_INC_LOCAL,      // OP_INC_LOCAL
+        &&do_ADD_LOCAL_CONST,    // OP_ADD_LOCAL_CONST
+        &&do_LESS_LOCAL_CONST,   // OP_LESS_LOCAL_CONST
+        &&do_INDEX_GET_LOCAL,    // OP_INDEX_GET_LOCAL
     };
 
 #define DISPATCH() \
@@ -1211,6 +1220,84 @@ static InterpretResult run(void) {
         moduleFrame->ip = moduleFunc->chunk->code;
         moduleFrame->slots = vm.stackTop - 1;
         frame = moduleFrame;
+        DISPATCH();
+    }
+
+    // === Superinstructions ===
+
+    // Single-byte local access (no operand byte needed)
+    do_GET_LOCAL_0: push(frame->slots[0]); DISPATCH();
+    do_GET_LOCAL_1: push(frame->slots[1]); DISPATCH();
+    do_GET_LOCAL_2: push(frame->slots[2]); DISPATCH();
+    do_GET_LOCAL_3: push(frame->slots[3]); DISPATCH();
+
+    // Increment local by 1: local = local + 1
+    do_INC_LOCAL: {
+        uint8_t slot = READ_BYTE();
+        Value val = frame->slots[slot];
+        if (IS_INT(val)) {
+            frame->slots[slot] = INT_VAL(AS_INT(val) + 1);
+        } else if (IS_FLOAT(val)) {
+            frame->slots[slot] = FLOAT_VAL(AS_FLOAT(val) + 1.0);
+        } else {
+            runtimeError("Operand must be a number.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        DISPATCH();
+    }
+
+    // Load local + constant, add: push(local[slot] + const[idx])
+    do_ADD_LOCAL_CONST: {
+        uint8_t slot = READ_BYTE();
+        Value constant = READ_CONSTANT();
+        Value local = frame->slots[slot];
+        // Fast path for ints
+        if (IS_INT(local) && IS_INT(constant)) {
+            push(INT_VAL(AS_INT(local) + AS_INT(constant)));
+        } else if (IS_NUMBER(local) && IS_NUMBER(constant)) {
+            push(FLOAT_VAL(AS_NUMBER(local) + AS_NUMBER(constant)));
+        } else {
+            runtimeError("Operands must be numbers.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        DISPATCH();
+    }
+
+    // Compare local < constant: push(local[slot] < const[idx])
+    do_LESS_LOCAL_CONST: {
+        uint8_t slot = READ_BYTE();
+        Value constant = READ_CONSTANT();
+        Value local = frame->slots[slot];
+        if (IS_NUMBER(local) && IS_NUMBER(constant)) {
+            push(BOOL_VAL(AS_NUMBER(local) < AS_NUMBER(constant)));
+        } else {
+            runtimeError("Operands must be numbers.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        DISPATCH();
+    }
+
+    // Array index with local: push(stack[-1][local[slot]])
+    do_INDEX_GET_LOCAL: {
+        uint8_t slot = READ_BYTE();
+        Value arrayVal = pop();
+        if (!IS_ARRAY(arrayVal)) {
+            runtimeError("Can only index arrays.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        Value indexVal = frame->slots[slot];
+        if (!IS_INT(indexVal)) {
+            runtimeError("Array index must be an integer.");
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        ObjArray* array = AS_ARRAY(arrayVal);
+        int64_t index = AS_INT(indexVal);
+        if (index < 0 || index >= array->count) {
+            runtimeError("Array index %lld out of bounds [0, %d).",
+                         (long long)index, array->count);
+            return INTERPRET_RUNTIME_ERROR;
+        }
+        push(array->elements[index]);
         DISPATCH();
     }
 
@@ -1825,6 +1912,77 @@ static InterpretResult run(void) {
                 vm.stackTop = frame->slots;
                 push(result);
                 frame = &vm.frames[vm.frameCount - 1];
+                break;
+            }
+
+            // === Superinstructions ===
+            case OP_GET_LOCAL_0: push(frame->slots[0]); break;
+            case OP_GET_LOCAL_1: push(frame->slots[1]); break;
+            case OP_GET_LOCAL_2: push(frame->slots[2]); break;
+            case OP_GET_LOCAL_3: push(frame->slots[3]); break;
+
+            case OP_INC_LOCAL: {
+                uint8_t slot = READ_BYTE();
+                Value val = frame->slots[slot];
+                if (IS_INT(val)) {
+                    frame->slots[slot] = INT_VAL(AS_INT(val) + 1);
+                } else if (IS_FLOAT(val)) {
+                    frame->slots[slot] = FLOAT_VAL(AS_FLOAT(val) + 1.0);
+                } else {
+                    runtimeError("Operand must be a number.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+
+            case OP_ADD_LOCAL_CONST: {
+                uint8_t slot = READ_BYTE();
+                Value constant = READ_CONSTANT();
+                Value local = frame->slots[slot];
+                if (IS_INT(local) && IS_INT(constant)) {
+                    push(INT_VAL(AS_INT(local) + AS_INT(constant)));
+                } else if (IS_NUMBER(local) && IS_NUMBER(constant)) {
+                    push(FLOAT_VAL(AS_NUMBER(local) + AS_NUMBER(constant)));
+                } else {
+                    runtimeError("Operands must be numbers.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+
+            case OP_LESS_LOCAL_CONST: {
+                uint8_t slot = READ_BYTE();
+                Value constant = READ_CONSTANT();
+                Value local = frame->slots[slot];
+                if (IS_NUMBER(local) && IS_NUMBER(constant)) {
+                    push(BOOL_VAL(AS_NUMBER(local) < AS_NUMBER(constant)));
+                } else {
+                    runtimeError("Operands must be numbers.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+
+            case OP_INDEX_GET_LOCAL: {
+                uint8_t slot = READ_BYTE();
+                Value arrayVal = pop();
+                if (!IS_ARRAY(arrayVal)) {
+                    runtimeError("Can only index arrays.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                Value indexVal = frame->slots[slot];
+                if (!IS_INT(indexVal)) {
+                    runtimeError("Array index must be an integer.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                ObjArray* array = AS_ARRAY(arrayVal);
+                int64_t index = AS_INT(indexVal);
+                if (index < 0 || index >= array->count) {
+                    runtimeError("Array index %lld out of bounds [0, %d).",
+                                 (long long)index, array->count);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                push(array->elements[index]);
                 break;
             }
 

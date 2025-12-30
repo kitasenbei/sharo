@@ -38,6 +38,16 @@ static int constantInstruction(const char* name, Chunk* chunk, int offset) {
     return offset + 2;
 }
 
+// For superinstructions with slot + constant index
+static int twoByteConstInstruction(const char* name, Chunk* chunk, int offset) {
+    uint8_t slot = chunk->code[offset + 1];
+    uint8_t constant = chunk->code[offset + 2];
+    printf("%-20s %4d '", name, slot);
+    printValue(chunk->constants.values[constant]);
+    printf("'\n");
+    return offset + 3;
+}
+
 int disassembleInstruction(Chunk* chunk, int offset) {
     printf("%04d ", offset);
 
@@ -186,6 +196,25 @@ int disassembleInstruction(Chunk* chunk, int offset) {
             return simpleInstruction("OP_GET_SELF", offset);
         case OP_IMPORT:
             return constantInstruction("OP_IMPORT", chunk, offset);
+
+        // Superinstructions
+        case OP_GET_LOCAL_0:
+            return simpleInstruction("OP_GET_LOCAL_0", offset);
+        case OP_GET_LOCAL_1:
+            return simpleInstruction("OP_GET_LOCAL_1", offset);
+        case OP_GET_LOCAL_2:
+            return simpleInstruction("OP_GET_LOCAL_2", offset);
+        case OP_GET_LOCAL_3:
+            return simpleInstruction("OP_GET_LOCAL_3", offset);
+        case OP_INC_LOCAL:
+            return byteInstruction("OP_INC_LOCAL", chunk, offset);
+        case OP_ADD_LOCAL_CONST:
+            return twoByteConstInstruction("OP_ADD_LOCAL_CONST", chunk, offset);
+        case OP_LESS_LOCAL_CONST:
+            return twoByteConstInstruction("OP_LESS_LOCAL_CONST", chunk, offset);
+        case OP_INDEX_GET_LOCAL:
+            return byteInstruction("OP_INDEX_GET_LOCAL", chunk, offset);
+
         default:
             printf("Unknown opcode %d\n", instruction);
             return offset + 1;

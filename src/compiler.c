@@ -561,8 +561,8 @@ static void self_(bool canAssign) {
         error("Can't use 'self' outside of a type definition.");
         return;
     }
-    // self is always in local slot 0 of methods
-    emitBytes(OP_GET_LOCAL, 0);
+    // self is always in local slot 0 of methods - use superinstruction
+    emitByte(OP_GET_LOCAL_0);
 }
 
 static void namedVariable(Token name, bool canAssign) {
@@ -588,7 +588,12 @@ static void namedVariable(Token name, bool canAssign) {
         // := is only for declaration, not reassignment
         error("Use '=' for assignment, ':=' is for declaration.");
     } else {
-        emitBytes(getOp, (uint8_t)arg);
+        // Superinstruction: single-byte local access for slots 0-3
+        if (getOp == OP_GET_LOCAL && arg >= 0 && arg <= 3) {
+            emitByte(OP_GET_LOCAL_0 + arg);
+        } else {
+            emitBytes(getOp, (uint8_t)arg);
+        }
     }
 }
 

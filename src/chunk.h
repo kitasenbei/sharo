@@ -103,6 +103,28 @@ typedef enum {
 
     // Modules
     OP_IMPORT,          // Import a module
+
+    // === Superinstructions ===
+    // Single-byte local access (no operand - slot encoded in opcode)
+    OP_GET_LOCAL_0,
+    OP_GET_LOCAL_1,
+    OP_GET_LOCAL_2,
+    OP_GET_LOCAL_3,
+
+    // Increment local by 1: local = local + 1 (operand: slot)
+    OP_INC_LOCAL,
+
+    // Load local, load constant, add: push(local[slot] + const[idx])
+    // Operands: slot (1 byte), constant index (1 byte)
+    OP_ADD_LOCAL_CONST,
+
+    // Load local, compare to constant: push(local[slot] < const[idx])
+    // Operands: slot (1 byte), constant index (1 byte)
+    OP_LESS_LOCAL_CONST,
+
+    // Array index with local: push(stack[-1][local[slot]])
+    // Operand: slot (1 byte)
+    OP_INDEX_GET_LOCAL,
 } OpCode;
 
 // Bytecode chunk - use struct tag for forward declaration compatibility
