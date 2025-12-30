@@ -17,6 +17,11 @@
 #define COMPUTED_GOTO
 #endif
 
+// Enable NaN boxing for compact 8-byte values (64-bit only)
+#if UINTPTR_MAX == 0xFFFFFFFFFFFFFFFF
+#define NAN_BOXING
+#endif
+
 #define UINT8_COUNT (UINT8_MAX + 1)
 
 #endif

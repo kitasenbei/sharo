@@ -29,6 +29,21 @@ void freeValueArray(ValueArray* array) {
 }
 
 void printValue(Value value) {
+#ifdef NAN_BOXING
+    if (IS_BOOL(value)) {
+        printf(AS_BOOL(value) ? "true" : "false");
+    } else if (IS_NIL(value)) {
+        printf("nil");
+    } else if (IS_INT(value)) {
+        printf("%ld", AS_INT(value));
+    } else if (IS_FLOAT(value)) {
+        printf("%g", AS_FLOAT(value));
+    } else if (IS_PTR(value)) {
+        printf("<ptr %p>", AS_PTR(value));
+    } else if (IS_OBJ(value)) {
+        printObject(value);
+    }
+#else
     switch (value.type) {
         case VAL_BOOL:
             printf(AS_BOOL(value) ? "true" : "false");
@@ -49,9 +64,19 @@ void printValue(Value value) {
             printObject(value);
             break;
     }
+#endif
 }
 
 bool valuesEqual(Value a, Value b) {
+#ifdef NAN_BOXING
+    // With NaN boxing, most equality is just bit comparison
+    // But we need special handling for int/float comparison
+    if (IS_NUMBER(a) && IS_NUMBER(b)) {
+        return AS_NUMBER(a) == AS_NUMBER(b);
+    }
+    // For everything else (bool, nil, obj, ptr), bit equality works
+    return a == b;
+#else
     // Different types are never equal (except int/float comparison)
     if (a.type != b.type) {
         // Allow int == float comparison
@@ -70,4 +95,5 @@ bool valuesEqual(Value a, Value b) {
         case VAL_OBJ:    return AS_OBJ(a) == AS_OBJ(b); // Pointer comparison (interned strings)
         default:         return false;
     }
+#endif
 }
