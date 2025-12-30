@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 
 // TCP sockets (POSIX)
 #include <sys/socket.h>
@@ -313,6 +314,13 @@ static Value randomFloatNative(int argCount, Value* args) {
     return FLOAT_VAL((double)rand() / RAND_MAX);
 }
 
+// sqrt(n) -> float
+static Value sqrtNative(int argCount, Value* args) {
+    (void)argCount;
+    double n = AS_NUMBER(args[0]);
+    return FLOAT_VAL(sqrt(n));
+}
+
 // ============ SDL3_ttf Native Functions ============
 
 // initTTF() -> bool
@@ -568,6 +576,7 @@ void initVM(void) {
     defineNative("getTextureSize", getTextureSizeNative);
     defineNative("random", randomNative);
     defineNative("randomFloat", randomFloatNative);
+    defineNative("sqrt", sqrtNative);
 
     // TTF functions
     defineNative("initTTF", initTTFNative);

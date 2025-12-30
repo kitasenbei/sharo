@@ -1,0 +1,198 @@
+// Cowllision - Collision Detection Benchmark
+// Cows bounce off each other (O(n²) collision checks)
+// Stops when FPS < 60
+
+SDL_INIT_VIDEO := 0x00000020
+SDL_EVENT_QUIT := 256
+SDL_EVENT_KEY_DOWN := 768
+KEY_ESC := 41
+
+WIDTH := 800
+HEIGHT := 600
+COW_SIZE := 24
+
+type Cow {
+    x: float,
+    y: float,
+    vx: float,
+    vy: float
+}
+
+cows := []
+
+addCows(count int) {
+    i := 0
+    for i < count {
+        cow := Cow(
+            (random(WIDTH - COW_SIZE * 2) + COW_SIZE) * 1.0,
+            (random(HEIGHT - COW_SIZE * 2) + COW_SIZE) * 1.0,
+            randomFloat() * 6.0 - 3.0,
+            randomFloat() * 6.0 - 3.0
+        )
+        push(cows, cow)
+        i = i + 1
+    }
+}
+
+// Check and resolve collisions between all cows
+checkCollisions() {
+    count := len(cows)
+    i := 0
+    for i < count {
+        j := i + 1
+        for j < count {
+            cowA := cows[i]
+            cowB := cows[j]
+
+            dx := cowB.x - cowA.x
+            dy := cowB.y - cowA.y
+            dist := sqrt(dx * dx + dy * dy)
+
+            if dist < COW_SIZE {
+                // Collision! Swap velocities (simple elastic)
+                if dist > 0.1 {
+                    // Normalize and separate
+                    nx := dx / dist
+                    ny := dy / dist
+
+                    // Separate cows
+                    overlap := (COW_SIZE - dist) / 2.0
+                    cowA.x = cowA.x - nx * overlap
+                    cowA.y = cowA.y - ny * overlap
+                    cowB.x = cowB.x + nx * overlap
+                    cowB.y = cowB.y + ny * overlap
+
+                    // Reflect velocities
+                    dvx := cowA.vx - cowB.vx
+                    dvy := cowA.vy - cowB.vy
+                    dvn := dvx * nx + dvy * ny
+
+                    cowA.vx = cowA.vx - dvn * nx
+                    cowA.vy = cowA.vy - dvn * ny
+                    cowB.vx = cowB.vx + dvn * nx
+                    cowB.vy = cowB.vy + dvn * ny
+
+                    cows[i] = cowA
+                    cows[j] = cowB
+                }
+            }
+            j = j + 1
+        }
+        i = i + 1
+    }
+}
+
+updateCows() {
+    i := 0
+    count := len(cows)
+    for i < count {
+        cow := cows[i]
+
+        cow.x = cow.x + cow.vx
+        cow.y = cow.y + cow.vy
+
+        // Bounce off walls
+        if cow.x < COW_SIZE / 2 {
+            cow.x = COW_SIZE / 2 * 1.0
+            cow.vx = 0.0 - cow.vx
+        }
+        if cow.x > WIDTH - COW_SIZE / 2 {
+            cow.x = (WIDTH - COW_SIZE / 2) * 1.0
+            cow.vx = 0.0 - cow.vx
+        }
+        if cow.y < COW_SIZE / 2 {
+            cow.y = COW_SIZE / 2 * 1.0
+            cow.vy = 0.0 - cow.vy
+        }
+        if cow.y > HEIGHT - COW_SIZE / 2 {
+            cow.y = (HEIGHT - COW_SIZE / 2) * 1.0
+            cow.vy = 0.0 - cow.vy
+        }
+
+        cows[i] = cow
+        i = i + 1
+    }
+}
+
+drawCows(renderer ptr, texture ptr) {
+    i := 0
+    count := len(cows)
+    for i < count {
+        cow := cows[i]
+        drawTexture(renderer, texture, cow.x - COW_SIZE/2, cow.y - COW_SIZE/2, COW_SIZE, COW_SIZE)
+        i = i + 1
+    }
+}
+
+// Main
+print("Cowllision Benchmark - Running...")
+print("O(n^2) collision detection")
+
+init(SDL_INIT_VIDEO)
+window := createWindow("Cowllision", WIDTH, HEIGHT, 0)
+renderer := createRenderer(window)
+
+cowTexture := loadTexture(renderer, "assets/cow.bmp")
+if cowTexture == nil {
+    print("Failed to load cow.bmp!")
+    destroyRenderer(renderer)
+    destroyWindow(window)
+    quit()
+}
+
+addCows(50)
+
+running := true
+frameCount := 0
+fps := 120
+lastTicks := getTicks()
+
+for running {
+    event := pollEvent()
+    if event == SDL_EVENT_QUIT {
+        running = false
+    } else if event == SDL_EVENT_KEY_DOWN {
+        if eventKey() == KEY_ESC {
+            running = false
+        }
+    }
+
+    // Add more cows every frame
+    addCows(5)
+
+    updateCows()
+    checkCollisions()
+
+    frameCount = frameCount + 1
+    currentTicks := getTicks()
+    if currentTicks - lastTicks >= 1000 {
+        fps = frameCount
+        frameCount = 0
+        lastTicks = currentTicks
+
+        if fps < 60 {
+            running = false
+        }
+    }
+
+    setDrawColor(renderer, 30, 30, 50, 255)
+    clear(renderer)
+    drawCows(renderer, cowTexture)
+    present(renderer)
+}
+
+// Calculate collision checks per frame
+collisionChecks := len(cows) * (len(cows) - 1) / 2
+
+print("=== COWLLISION RESULTS ===")
+print("Cows:")
+print(len(cows))
+print("Collision checks/frame:")
+print(collisionChecks)
+print("FPS:")
+print(fps)
+
+destroyTexture(cowTexture)
+destroyRenderer(renderer)
+destroyWindow(window)
+quit()

@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c99 -g $(shell pkg-config --cflags sdl3 sdl3-ttf 2>/dev/null)
-LDFLAGS = $(shell pkg-config --libs sdl3 sdl3-ttf 2>/dev/null)
+LDFLAGS = $(shell pkg-config --libs sdl3 sdl3-ttf 2>/dev/null) -lm
 
 SRC_DIR = src
 BUILD_DIR = build
