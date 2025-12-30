@@ -336,7 +336,7 @@ for running {
     }
 
     present(renderer)
-    delay(16)
+    // delay(16)  // Uncapped for comparison
 }
 
 if font != nil {

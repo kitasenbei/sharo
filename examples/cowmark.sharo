@@ -15,13 +15,17 @@ KEY_ESC := 41
 WIDTH := 800
 HEIGHT := 600
 
-// Sprite properties stored in parallel arrays
+// Cow struct
+type Cow {
+    x: float,
+    y: float,
+    vx: float,
+    vy: float
+}
+
+// Cow storage
+cows := []
 MAX_COWS := 10000
-cowX := []
-cowY := []
-cowVX := []
-cowVY := []
-cowCount := 0
 
 // Physics
 GRAVITY := 0.5
@@ -30,14 +34,16 @@ GRAVITY := 0.5
 addCows(count int) {
     i := 0
     for i < count {
-        if cowCount >= MAX_COWS {
+        if len(cows) >= MAX_COWS {
             return
         }
-        push(cowX, random(WIDTH - 32))
-        push(cowY, random(HEIGHT / 2))
-        push(cowVX, randomFloat() * 10.0 - 5.0)
-        push(cowVY, randomFloat() * 5.0)
-        cowCount = cowCount + 1
+        cow := Cow(
+            random(WIDTH - 32) * 1.0,
+            random(HEIGHT / 2) * 1.0,
+            randomFloat() * 10.0 - 5.0,
+            randomFloat() * 5.0
+        )
+        push(cows, cow)
         i = i + 1
     }
 }
@@ -45,35 +51,41 @@ addCows(count int) {
 // Update all cows
 updateCows() {
     i := 0
-    for i < cowCount {
+    count := len(cows)
+    for i < count {
+        cow := cows[i]
+
         // Apply velocity
-        cowX[i] = cowX[i] + cowVX[i]
-        cowY[i] = cowY[i] + cowVY[i]
+        cow.x = cow.x + cow.vx
+        cow.y = cow.y + cow.vy
 
         // Apply gravity
-        cowVY[i] = cowVY[i] + GRAVITY
+        cow.vy = cow.vy + GRAVITY
 
         // Bounce off walls
-        if cowX[i] < 0 {
-            cowX[i] = 0
-            cowVX[i] = 0 - cowVX[i]
+        if cow.x < 0.0 {
+            cow.x = 0.0
+            cow.vx = 0.0 - cow.vx
         }
-        if cowX[i] > WIDTH - 32 {
-            cowX[i] = WIDTH - 32
-            cowVX[i] = 0 - cowVX[i]
+        if cow.x > WIDTH - 32 {
+            cow.x = (WIDTH - 32) * 1.0
+            cow.vx = 0.0 - cow.vx
         }
 
         // Bounce off floor
-        if cowY[i] > HEIGHT - 32 {
-            cowY[i] = HEIGHT - 32
-            cowVY[i] = 0 - cowVY[i] * 0.85
+        if cow.y > HEIGHT - 32 {
+            cow.y = (HEIGHT - 32) * 1.0
+            cow.vy = (0.0 - cow.vy) * 0.85
         }
 
         // Bounce off ceiling
-        if cowY[i] < 0 {
-            cowY[i] = 0
-            cowVY[i] = 0 - cowVY[i]
+        if cow.y < 0.0 {
+            cow.y = 0.0
+            cow.vy = 0.0 - cow.vy
         }
+
+        // Write back
+        cows[i] = cow
 
         i = i + 1
     }
@@ -82,13 +94,15 @@ updateCows() {
 // Draw all cows
 drawCows(renderer ptr, texture ptr) {
     i := 0
-    for i < cowCount {
-        drawTexture(renderer, texture, cowX[i], cowY[i], 32, 32)
+    count := len(cows)
+    for i < count {
+        cow := cows[i]
+        drawTexture(renderer, texture, cow.x, cow.y, 32, 32)
         i = i + 1
     }
 }
 
-// Convert int to string (simple implementation)
+// Convert int to string
 intToStr(n int) str {
     if n == 0 {
         return "0"
@@ -187,15 +201,15 @@ for running {
     // Draw text
     if font != nil {
         drawText(renderer, font, "FPS: " + intToStr(fps), 10, 10, 255, 255, 0)
-        drawText(renderer, font, "Cows: " + intToStr(cowCount), 10, 35, 255, 255, 255)
+        drawText(renderer, font, "Cows: " + intToStr(len(cows)), 10, 35, 255, 255, 255)
     }
 
     present(renderer)
-    delay(1)
+    // delay(1)  // Uncapped
 }
 
 print("Final cow count:")
-print(cowCount)
+print(len(cows))
 
 destroyTexture(cowTexture)
 if font != nil {
