@@ -13,29 +13,35 @@ sharolang/
 │   ├── vm.c/h          # Stack-based virtual machine + SDL natives
 │   ├── chunk.c/h       # Bytecode container
 │   ├── value.c/h       # Value representation (int64, float64, bool, nil, ptr, obj)
-│   ├── object.c/h      # Heap objects (strings, functions, closures)
+│   ├── object.c/h      # Heap objects (strings, functions, closures, arrays, structs)
 │   ├── table.c/h       # Hash table for globals and string interning
 │   ├── memory.c/h      # Memory allocation, GC
 │   ├── debug.c/h       # Bytecode disassembler
 │   └── common.h        # Common includes and defines
+├── assets/
+│   └── cow.bmp         # Sprite for benchmark
 ├── examples/
-│   ├── game.sharo      # Interactive game demo
-│   ├── fib.sharo       # Fibonacci example
+│   ├── arrays.sharo    # Array feature tests
+│   ├── structs.sharo   # Struct feature tests
+│   ├── methods.sharo   # Method feature tests
+│   ├── modules/        # Import system demo
+│   ├── tictactoe.sharo # Playable SDL3 game
+│   ├── cowmark.sharo   # Sprite benchmark
 │   └── test.sharo      # Language feature tests
-├── docs/
-│   └── SDL3_REFERENCE.md  # Complete SDL3 API to implement
 ├── Makefile
 └── CLAUDE.md           # This file
 ```
 
 ## Language Syntax
 
+### Variables
 ```
-// Variables
 x := 10              // Mutable, type inferred
 MAX : 100            // Constant
+```
 
-// Functions (bare parens syntax)
+### Functions
+```
 add(a int, b int) int {
     return a + b
 }
@@ -46,8 +52,63 @@ greet() {
 
 // Lambdas
 double := (x int) -> x * 2
+```
 
-// Control flow
+### Arrays
+```
+arr := [1, 2, 3]      // Array literal
+arr[0]                // Index access (0)
+arr[1] = 10           // Index assignment
+len(arr)              // Length (3)
+push(arr, 4)          // Append, returns new length
+pop(arr)              // Remove and return last element
+```
+
+### Structs
+```
+type Point {
+    x: int,
+    y: int
+}
+
+p := Point(10, 20)    // Constructor (positional args)
+print(p.x)            // Field access
+p.y = 30              // Field assignment
+```
+
+### Methods
+```
+type Counter {
+    value: int
+
+    increment() {
+        self.value = self.value + 1
+    }
+
+    get() int {
+        return self.value
+    }
+}
+
+c := Counter(0)
+c.increment()
+print(c.get())        // 1
+```
+
+### Modules
+```
+// math.sharo
+PI := 3.14159
+square(n int) int { return n * n }
+
+// main.sharo
+import "math.sharo"
+print(PI)             // 3.14159
+print(square(5))      // 25
+```
+
+### Control Flow
+```
 if condition {
     // ...
 } else {
@@ -57,23 +118,18 @@ if condition {
 for condition {
     // while-style loop
 }
-
-// SDL usage (no prefix)
-init(0)
-window := createWindow("Game", 800, 600, 0)
-renderer := createRenderer(window)
 ```
 
 ## Building
 
 ```bash
-make          # Build with SDL3
+make          # Build with SDL3 + SDL3_ttf
 make clean    # Clean build
 ./sharo       # REPL
 ./sharo file.sharo  # Run file
 ```
 
-Requires SDL3 development libraries (`pkg-config --libs sdl3`).
+Requires SDL3 and SDL3_ttf development libraries.
 
 ## Value Types
 
@@ -85,33 +141,98 @@ Requires SDL3 development libraries (`pkg-config --libs sdl3`).
 | nil | - | `nil` |
 | str | ObjString* | `"hello"` |
 | ptr | void* | (from SDL functions) |
+| array | ObjArray* | `[1, 2, 3]` |
+| struct | ObjStruct* | `Point(10, 20)` |
 
-## Opcodes (chunk.h)
+## Object Types (object.h)
 
-Key opcodes for reference:
-- `OP_CONSTANT`, `OP_NIL`, `OP_TRUE`, `OP_FALSE`
-- `OP_ADD`, `OP_SUBTRACT`, `OP_MULTIPLY`, `OP_DIVIDE`, `OP_MODULO`, `OP_NEGATE`
-- `OP_EQUAL`, `OP_NOT_EQUAL`, `OP_GREATER`, `OP_LESS`, etc.
-- `OP_JUMP`, `OP_JUMP_IF_FALSE`, `OP_LOOP`
-- `OP_CALL`, `OP_CLOSURE`, `OP_RETURN`
-- `OP_GET_GLOBAL`, `OP_SET_GLOBAL`, `OP_DEFINE_GLOBAL`
-- `OP_GET_LOCAL`, `OP_SET_LOCAL`
-- `OP_GET_UPVALUE`, `OP_SET_UPVALUE`, `OP_CLOSE_UPVALUE`
-- `OP_PRINT`
+| Type | Description |
+|------|-------------|
+| OBJ_STRING | Interned strings |
+| OBJ_FUNCTION | Compiled functions |
+| OBJ_CLOSURE | Functions with captured upvalues |
+| OBJ_NATIVE | Built-in C functions |
+| OBJ_UPVALUE | Captured variables |
+| OBJ_ARRAY | Dynamic arrays |
+| OBJ_STRUCT_DEF | Struct type definition |
+| OBJ_STRUCT | Struct instance |
+| OBJ_BOUND_METHOD | Method bound to instance |
+
+## Native Functions
+
+### Core
+- `clock()` - CPU time in seconds
+- `print(value)` - Print to stdout
+- `len(arr|str)` - Length of array or string
+- `push(arr, val)` - Append to array
+- `pop(arr)` - Remove last from array
+
+### SDL3 - Initialization
+- `init(flags)` - Initialize SDL
+- `quit()` - Shutdown SDL
+
+### SDL3 - Window
+- `createWindow(title, w, h, flags)` - Create window, returns ptr
+- `destroyWindow(window)` - Destroy window
+
+### SDL3 - Renderer
+- `createRenderer(window)` - Create renderer, returns ptr
+- `destroyRenderer(renderer)` - Destroy renderer
+- `clear(renderer)` - Clear screen
+- `present(renderer)` - Swap buffers
+- `setDrawColor(renderer, r, g, b, a)` - Set draw color
+- `fillRect(renderer, x, y, w, h)` - Draw filled rectangle
+- `drawRect(renderer, x, y, w, h)` - Draw rectangle outline
+
+### SDL3 - Textures
+- `loadTexture(renderer, path)` - Load BMP image, returns ptr
+- `destroyTexture(texture)` - Free texture
+- `drawTexture(renderer, texture, x, y, w, h)` - Draw texture
+- `getTextureSize(texture)` - Returns [width, height] array
+
+### SDL3 - Events
+- `pollEvent()` - Poll event, returns event type (int)
+- `eventKey()` - Get key scancode from last event
+
+### SDL3 - Time
+- `delay(ms)` - Sleep for milliseconds
+- `getTicks()` - Milliseconds since init
+
+### SDL3 - Random
+- `random(max)` - Random int from 0 to max-1
+- `randomFloat()` - Random float from 0.0 to 1.0
+
+### SDL3_ttf - Text
+- `initTTF()` - Initialize TTF subsystem
+- `quitTTF()` - Shutdown TTF
+- `loadFont(path, size)` - Load TTF font, returns ptr
+- `destroyFont(font)` - Free font
+- `drawText(renderer, font, text, x, y, r, g, b)` - Render text
+
+## SDL Constants
+
+```
+SDL_INIT_VIDEO := 0x00000020
+SDL_EVENT_QUIT := 256
+SDL_EVENT_KEY_DOWN := 768
+
+// Key scancodes (SDL3)
+KEY_ESC := 41
+KEY_SPACE := 44
+KEY_1 := 30  // through KEY_9 := 38
+KEY_Q := 20
+KEY_R := 21
+// etc.
+```
 
 ## Adding SDL Functions
-
-To add a new SDL function as a native:
 
 1. In `vm.c`, add the native function:
 ```c
 static Value myFunctionNative(int argCount, Value* args) {
     (void)argCount;
-    // Extract args
     int x = (int)AS_INT(args[0]);
-    // Call SDL
     SDL_MyFunction(x);
-    // Return result
     return NIL_VAL;  // or BOOL_VAL(), INT_VAL(), PTR_VAL(), etc.
 }
 ```
@@ -121,19 +242,14 @@ static Value myFunctionNative(int argCount, Value* args) {
 defineNative("myFunction", myFunctionNative);
 ```
 
-3. Update `docs/SDL3_REFERENCE.md` to mark as implemented.
+## Adding Language Features
 
-## SDL3 Implementation Status
-
-See `docs/SDL3_REFERENCE.md` for complete API reference.
-
-Currently implemented:
-- Initialization: `init`, `quit`
-- Window: `createWindow`, `destroyWindow`
-- Renderer: `createRenderer`, `destroyRenderer`, `clear`, `present`
-- Drawing: `setDrawColor`, `fillRect`, `drawRect`
-- Events: `pollEvent`, `eventKey`
-- Time: `delay`, `getTicks`
+1. Add tokens to `scanner.h` and `scanner.c`
+2. Add parsing to `compiler.c` (Pratt parser for expressions)
+3. Add opcodes to `chunk.h` if needed
+4. Add VM execution in `vm.c`
+5. Add object types to `object.h/c` if needed
+6. Update GC marking in `memory.c`
 
 ## Key Design Decisions
 
@@ -142,24 +258,17 @@ Currently implemented:
 3. **No semicolons** - Newline-terminated statements
 4. **`:=` for declaration, `=` for assignment**
 5. **Value types include `ptr`** - For SDL handles (windows, renderers, etc.)
+6. **Constructor syntax** - `Point(x, y)` not `Point{x: 1, y: 2}`
+7. **`self` keyword** - Used in methods to access instance
 
-## Common Tasks
+## Debugging
 
-### Run the game demo
-```bash
-./sharo examples/game.sharo
-```
+Enable in `common.h`:
+- `DEBUG_TRACE_EXECUTION` - Print bytecode as it executes
+- `DEBUG_PRINT_CODE` - Print compiled bytecode
 
-### Test language features
-```bash
-./sharo examples/test.sharo
-```
+## Performance
 
-### Debug bytecode
-Enable `DEBUG_TRACE_EXECUTION` in `common.h` to see bytecode execution.
-
-### Add a new language feature
-1. Add tokens to `scanner.h` and `scanner.c`
-2. Add parsing to `compiler.c` (use Pratt parser for expressions)
-3. Add opcodes to `chunk.h` if needed
-4. Add VM execution in `vm.c`
+Cowmark benchmark: ~10,000 sprites @ 50 FPS
+- Bottleneck is VM bytecode interpretation for per-sprite updates
+- SDL3 rendering is GPU-accelerated
