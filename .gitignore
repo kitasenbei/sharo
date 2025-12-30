@@ -54,3 +54,4 @@ docs/
 # Environment files
 .env
 .env.local
+CLAUDE.md
