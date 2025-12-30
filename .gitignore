@@ -45,6 +45,12 @@ docs/_build/
 # Crafting Interpreters reference (local development only)
 crafting_interpreters/
 
+# Claude Code
+.claude/
+
+# Local docs
+docs/
+
 # Environment files
 .env
 .env.local
