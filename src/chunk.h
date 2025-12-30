@@ -85,9 +85,24 @@ typedef enum {
     OP_PRINT,
 
     // Structs
-    OP_STRUCT,
-    OP_GET_FIELD,
-    OP_SET_FIELD,
+    OP_STRUCT_DEF,      // Define struct type (field count follows)
+    OP_STRUCT_FIELD,    // Add field name to struct def (name constant follows)
+    OP_STRUCT_CALL,     // Constructor call: create instance with N args
+    OP_GET_FIELD,       // Get field by name
+    OP_SET_FIELD,       // Set field by name
+
+    // Arrays
+    OP_ARRAY,           // Create array from N stack elements
+    OP_INDEX_GET,       // arr[index] - get element
+    OP_INDEX_SET,       // arr[index] = value - set element
+
+    // Methods
+    OP_METHOD,          // Define a method on struct type
+    OP_INVOKE,          // Invoke method directly (optimization)
+    OP_GET_SELF,        // Get 'self' for method body
+
+    // Modules
+    OP_IMPORT,          // Import a module
 } OpCode;
 
 // Bytecode chunk - use struct tag for forward declaration compatibility

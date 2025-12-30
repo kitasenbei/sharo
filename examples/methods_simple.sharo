@@ -1,0 +1,19 @@
+// Simple method test
+type Counter {
+    value: int
+
+    increment() {
+        self.value = self.value + 1
+    }
+
+    getValue() int {
+        return self.value
+    }
+}
+
+c := Counter(0)
+print(c.getValue())
+c.increment()
+print(c.getValue())
+c.increment()
+print(c.getValue())

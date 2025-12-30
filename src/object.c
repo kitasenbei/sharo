@@ -60,6 +60,52 @@ ObjUpvalue* newUpvalue(Value* slot) {
     return upvalue;
 }
 
+ObjArray* newArray(void) {
+    ObjArray* array = ALLOCATE_OBJ(ObjArray, OBJ_ARRAY);
+    array->count = 0;
+    array->capacity = 0;
+    array->elements = NULL;
+    return array;
+}
+
+void writeArray(ObjArray* array, Value value) {
+    if (array->capacity < array->count + 1) {
+        int oldCapacity = array->capacity;
+        array->capacity = GROW_CAPACITY(oldCapacity);
+        array->elements = GROW_ARRAY(Value, array->elements,
+                                      oldCapacity, array->capacity);
+    }
+    array->elements[array->count] = value;
+    array->count++;
+}
+
+ObjStructDef* newStructDef(ObjString* name) {
+    ObjStructDef* def = ALLOCATE_OBJ(ObjStructDef, OBJ_STRUCT_DEF);
+    def->name = name;
+    def->fieldCount = 0;
+    def->fieldNames = NULL;
+    initTable(&def->methods);
+    return def;
+}
+
+ObjBoundMethod* newBoundMethod(Value receiver, ObjClosure* method) {
+    ObjBoundMethod* bound = ALLOCATE_OBJ(ObjBoundMethod, OBJ_BOUND_METHOD);
+    bound->receiver = receiver;
+    bound->method = method;
+    return bound;
+}
+
+ObjStruct* newStruct(ObjStructDef* definition) {
+    ObjStruct* instance = ALLOCATE_OBJ(ObjStruct, OBJ_STRUCT);
+    instance->definition = definition;
+    instance->fields = ALLOCATE(Value, definition->fieldCount);
+    // Initialize all fields to nil
+    for (int i = 0; i < definition->fieldCount; i++) {
+        instance->fields[i] = NIL_VAL;
+    }
+    return instance;
+}
+
 // FNV-1a hash function
 static uint32_t hashString(const char* key, int length) {
     uint32_t hash = 2166136261u;
@@ -135,6 +181,35 @@ void printObject(Value value) {
         case OBJ_UPVALUE:
             printf("<upvalue>");
             break;
+        case OBJ_ARRAY: {
+            ObjArray* array = AS_ARRAY(value);
+            printf("[");
+            for (int i = 0; i < array->count; i++) {
+                if (i > 0) printf(", ");
+                printValue(array->elements[i]);
+            }
+            printf("]");
+            break;
+        }
+        case OBJ_STRUCT_DEF: {
+            ObjStructDef* def = AS_STRUCT_DEF(value);
+            printf("<type %s>", def->name->chars);
+            break;
+        }
+        case OBJ_STRUCT: {
+            ObjStruct* instance = AS_STRUCT(value);
+            printf("%s(", instance->definition->name->chars);
+            for (int i = 0; i < instance->definition->fieldCount; i++) {
+                if (i > 0) printf(", ");
+                printf("%s: ", instance->definition->fieldNames[i]->chars);
+                printValue(instance->fields[i]);
+            }
+            printf(")");
+            break;
+        }
+        case OBJ_BOUND_METHOD:
+            printFunction(AS_BOUND_METHOD(value)->method->function);
+            break;
     }
 }
 
@@ -164,6 +239,28 @@ void freeObject(Obj* object) {
         }
         case OBJ_UPVALUE:
             FREE(ObjUpvalue, object);
+            break;
+        case OBJ_ARRAY: {
+            ObjArray* array = (ObjArray*)object;
+            FREE_ARRAY(Value, array->elements, array->capacity);
+            FREE(ObjArray, object);
+            break;
+        }
+        case OBJ_STRUCT_DEF: {
+            ObjStructDef* def = (ObjStructDef*)object;
+            FREE_ARRAY(ObjString*, def->fieldNames, def->fieldCount);
+            freeTable(&def->methods);
+            FREE(ObjStructDef, object);
+            break;
+        }
+        case OBJ_STRUCT: {
+            ObjStruct* instance = (ObjStruct*)object;
+            FREE_ARRAY(Value, instance->fields, instance->definition->fieldCount);
+            FREE(ObjStruct, object);
+            break;
+        }
+        case OBJ_BOUND_METHOD:
+            FREE(ObjBoundMethod, object);
             break;
     }
 }

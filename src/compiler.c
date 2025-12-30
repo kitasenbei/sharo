@@ -60,7 +60,14 @@ typedef struct {
 typedef enum {
     TYPE_FUNCTION,
     TYPE_SCRIPT,
+    TYPE_METHOD,
 } FunctionType;
+
+// Track current struct being defined (for methods)
+typedef struct TypeCompiler {
+    struct TypeCompiler* enclosing;
+    ObjStructDef* definition;
+} TypeCompiler;
 
 // Compiler state (one per function being compiled)
 typedef struct Compiler {
@@ -76,6 +83,7 @@ typedef struct Compiler {
 
 Parser parser;
 Compiler* current = NULL;
+TypeCompiler* currentType = NULL;
 
 static Chunk* currentChunk(void) {
     return current->function->chunk;
@@ -210,12 +218,17 @@ static void initCompiler(Compiler* compiler, FunctionType type) {
                                               parser.previous.length);
     }
 
-    // Slot 0 for internal use
+    // Slot 0 for internal use - 'self' for methods, empty for functions
     Local* local = &current->locals[current->localCount++];
     local->depth = 0;
     local->isCaptured = false;
-    local->name.start = "";
-    local->name.length = 0;
+    if (type == TYPE_METHOD) {
+        local->name.start = "self";
+        local->name.length = 4;
+    } else {
+        local->name.start = "";
+        local->name.length = 0;
+    }
 }
 
 static ObjFunction* endCompiler(void) {
@@ -499,6 +512,59 @@ static void string(bool canAssign) {
                                      parser.previous.length - 2)));
 }
 
+static void arrayLiteral(bool canAssign) {
+    (void)canAssign;
+    int elementCount = 0;
+
+    if (!check(TOKEN_RIGHT_BRACKET)) {
+        do {
+            expression();
+            if (elementCount == 255) {
+                error("Can't have more than 255 elements in array literal.");
+            }
+            elementCount++;
+        } while (match(TOKEN_COMMA));
+    }
+
+    consume(TOKEN_RIGHT_BRACKET, "Expect ']' after array elements.");
+    emitBytes(OP_ARRAY, (uint8_t)elementCount);
+}
+
+static void subscript(bool canAssign) {
+    // Parse the index expression
+    expression();
+    consume(TOKEN_RIGHT_BRACKET, "Expect ']' after index.");
+
+    if (canAssign && match(TOKEN_EQUAL)) {
+        expression();
+        emitByte(OP_INDEX_SET);
+    } else {
+        emitByte(OP_INDEX_GET);
+    }
+}
+
+static void dot(bool canAssign) {
+    consume(TOKEN_IDENTIFIER, "Expect property name after '.'.");
+    uint8_t name = identifierConstant(&parser.previous);
+
+    if (canAssign && match(TOKEN_EQUAL)) {
+        expression();
+        emitBytes(OP_SET_FIELD, name);
+    } else {
+        emitBytes(OP_GET_FIELD, name);
+    }
+}
+
+static void self_(bool canAssign) {
+    (void)canAssign;
+    if (currentType == NULL) {
+        error("Can't use 'self' outside of a type definition.");
+        return;
+    }
+    // self is always in local slot 0 of methods
+    emitBytes(OP_GET_LOCAL, 0);
+}
+
 static void namedVariable(Token name, bool canAssign) {
     uint8_t getOp, setOp;
     int arg = resolveLocal(current, &name);
@@ -556,10 +622,10 @@ ParseRule rules[] = {
     [TOKEN_RIGHT_PAREN]   = {NULL,     NULL,   PREC_NONE},
     [TOKEN_LEFT_BRACE]    = {NULL,     NULL,   PREC_NONE},
     [TOKEN_RIGHT_BRACE]   = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_LEFT_BRACKET]  = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_LEFT_BRACKET]  = {arrayLiteral, subscript, PREC_CALL},
     [TOKEN_RIGHT_BRACKET] = {NULL,     NULL,   PREC_NONE},
     [TOKEN_COMMA]         = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_DOT]           = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_DOT]           = {NULL,     dot,    PREC_CALL},
     [TOKEN_SEMICOLON]     = {NULL,     NULL,   PREC_NONE},
     [TOKEN_PLUS]          = {NULL,     binary, PREC_TERM},
     [TOKEN_MINUS]         = {unary,    binary, PREC_TERM},
@@ -605,6 +671,9 @@ ParseRule rules[] = {
     [TOKEN_CONTINUE]      = {NULL,     NULL,   PREC_NONE},
     [TOKEN_TYPE]          = {NULL,     NULL,   PREC_NONE},
     [TOKEN_EXTERN]        = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_SELF]          = {self_,    NULL,   PREC_NONE},
+    [TOKEN_IMPORT]        = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_EXPORT]        = {NULL,     NULL,   PREC_NONE},
     [TOKEN_AND]           = {NULL,     and_,   PREC_AND},
     [TOKEN_OR]            = {NULL,     or_,    PREC_OR},
     [TOKEN_NOT]           = {unary,    NULL,   PREC_NONE},
@@ -736,6 +805,171 @@ static void forStatement(void) {
     endScope();
 }
 
+// Forward declare for method compilation
+static void function(FunctionType type, bool parenConsumed);
+
+static void method(Token methodName) {
+    // methodName(params...) returnType { body }
+    // Note: methodName token already consumed by caller
+    uint8_t constant = identifierConstant(&methodName);
+
+    // Compile the method as a function
+    FunctionType type = TYPE_METHOD;
+
+    // Set previous to method name so initCompiler can use it
+    parser.previous = methodName;
+
+    Compiler compiler;
+    initCompiler(&compiler, type);
+    beginScope();
+
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after method name.");
+
+    // Parameters
+    if (!check(TOKEN_RIGHT_PAREN)) {
+        do {
+            current->function->arity++;
+            if (current->function->arity > 255) {
+                errorAtCurrent("Can't have more than 255 parameters.");
+            }
+            uint8_t paramConstant = parseVariable("Expect parameter name.");
+            (void)paramConstant;
+
+            // Skip type annotation
+            if (check(TOKEN_INT) || check(TOKEN_FLOAT) || check(TOKEN_BOOL) ||
+                check(TOKEN_STR) || check(TOKEN_PTR) || check(TOKEN_IDENTIFIER)) {
+                advance();
+            }
+
+            markInitialized();
+        } while (match(TOKEN_COMMA));
+    }
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
+
+    // Skip return type annotation
+    if (check(TOKEN_INT) || check(TOKEN_FLOAT) || check(TOKEN_BOOL) ||
+        check(TOKEN_STR) || check(TOKEN_PTR) || check(TOKEN_VOID) ||
+        check(TOKEN_IDENTIFIER)) {
+        advance();
+    }
+
+    // Body
+    consume(TOKEN_LEFT_BRACE, "Expect '{' before method body.");
+    block();
+
+    ObjFunction* fn = endCompiler();
+    emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(fn)));
+
+    for (int i = 0; i < fn->upvalueCount; i++) {
+        emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
+        emitByte(compiler.upvalues[i].index);
+    }
+
+    emitBytes(OP_METHOD, constant);
+}
+
+static void typeDeclaration(void) {
+    // type Point { x: int, y: int methodName() { ... } }
+    consume(TOKEN_IDENTIFIER, "Expect type name.");
+    Token typeName = parser.previous;
+    uint8_t nameConstant = identifierConstant(&typeName);
+
+    consume(TOKEN_LEFT_BRACE, "Expect '{' after type name.");
+
+    // Count fields first (fields are name: type, methods are name(...))
+    int fieldCount = 0;
+    ObjString* fieldNames[256];
+
+    // Set up type compiler for method compilation (needed before parsing)
+    TypeCompiler typeCompiler;
+    typeCompiler.enclosing = currentType;
+    currentType = &typeCompiler;
+
+    // Parse fields and methods
+    while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+        if (!check(TOKEN_IDENTIFIER)) break;
+
+        // Peek ahead to see if this is a method (has '(') or field (has ':')
+        Token name = parser.current;
+        advance(); // consume identifier
+
+        if (check(TOKEN_LEFT_PAREN)) {
+            // This is a method - emit struct def and fields first if not done
+            if (fieldCount >= 0) {
+                // Emit: create struct def with name constant, then add fields
+                emitBytes(OP_STRUCT_DEF, (uint8_t)fieldCount);
+                emitByte(nameConstant);
+
+                // Emit field names
+                for (int i = 0; i < fieldCount; i++) {
+                    uint8_t fieldNameConstant = makeConstant(OBJ_VAL(fieldNames[i]));
+                    emitBytes(OP_STRUCT_FIELD, fieldNameConstant);
+                }
+
+                // Mark that we've emitted the struct def
+                fieldCount = -1;
+            }
+
+            // Now compile the method
+            method(name);
+            continue;
+        }
+
+        // This is a field
+        fieldNames[fieldCount] = copyString(name.start, name.length);
+
+        consume(TOKEN_COLON, "Expect ':' after field name.");
+
+        // Skip type annotation (for now, not enforced)
+        if (check(TOKEN_INT) || check(TOKEN_FLOAT) || check(TOKEN_BOOL) ||
+            check(TOKEN_STR) || check(TOKEN_PTR) || check(TOKEN_IDENTIFIER)) {
+            advance();
+        }
+
+        fieldCount++;
+        if (fieldCount > 255) {
+            error("Can't have more than 255 fields in a struct.");
+        }
+
+        // Optional comma
+        match(TOKEN_COMMA);
+    }
+
+    // If we haven't emitted the struct def yet (no methods), do it now
+    if (fieldCount >= 0) {
+        // Emit: create struct def with name constant, then add fields
+        emitBytes(OP_STRUCT_DEF, (uint8_t)fieldCount);
+        emitByte(nameConstant);
+
+        // Emit field names
+        for (int i = 0; i < fieldCount; i++) {
+            uint8_t fieldNameConstant = makeConstant(OBJ_VAL(fieldNames[i]));
+            emitBytes(OP_STRUCT_FIELD, fieldNameConstant);
+        }
+    }
+
+    currentType = currentType->enclosing;
+
+    consume(TOKEN_RIGHT_BRACE, "Expect '}' after type body.");
+
+    // Define as global variable
+    if (current->scopeDepth > 0) {
+        addLocal(typeName);
+        markInitialized();
+    } else {
+        emitBytes(OP_DEFINE_GLOBAL, nameConstant);
+    }
+}
+
+static void importStatement(void) {
+    // import "path/to/module.sharo"
+    consume(TOKEN_STRING, "Expect module path after 'import'.");
+    uint8_t pathConstant = makeConstant(OBJ_VAL(copyString(
+        parser.previous.start + 1,
+        parser.previous.length - 2)));
+    emitBytes(OP_IMPORT, pathConstant);
+}
+
 static void statement(void) {
     if (match(TOKEN_IF)) {
         ifStatement();
@@ -743,6 +977,10 @@ static void statement(void) {
         returnStatement();
     } else if (match(TOKEN_FOR)) {
         forStatement();
+    } else if (match(TOKEN_TYPE)) {
+        typeDeclaration();
+    } else if (match(TOKEN_IMPORT)) {
+        importStatement();
     } else if (match(TOKEN_LEFT_BRACE)) {
         beginScope();
         block();
@@ -923,6 +1161,52 @@ static void statement(void) {
                 emitBytes(OP_CALL, argCount);
                 emitByte(OP_POP);
             }
+        } else if (check(TOKEN_LEFT_BRACKET)) {
+            // Array subscript access/assignment: arr[0] or arr[0] = value
+            namedVariable(name, false);  // Get the array
+
+            advance();  // consume '['
+            expression();  // Parse index
+            consume(TOKEN_RIGHT_BRACKET, "Expect ']' after index.");
+
+            if (match(TOKEN_EQUAL)) {
+                expression();  // Parse value
+                emitByte(OP_INDEX_SET);
+            } else {
+                emitByte(OP_INDEX_GET);
+            }
+            emitByte(OP_POP);
+        } else if (check(TOKEN_DOT)) {
+            // Field access/assignment/method call: p.x, p.x = value, p.method()
+            namedVariable(name, false);  // Get the struct
+
+            advance();  // consume '.'
+            consume(TOKEN_IDENTIFIER, "Expect field name after '.'.");
+            uint8_t fieldName = identifierConstant(&parser.previous);
+
+            if (match(TOKEN_EQUAL)) {
+                expression();  // Parse value
+                emitBytes(OP_SET_FIELD, fieldName);
+            } else if (check(TOKEN_LEFT_PAREN)) {
+                // Method call
+                emitBytes(OP_GET_FIELD, fieldName);
+                advance();  // consume '('
+                uint8_t argCount = 0;
+                if (!check(TOKEN_RIGHT_PAREN)) {
+                    do {
+                        expression();
+                        if (argCount == 255) {
+                            error("Can't have more than 255 arguments.");
+                        }
+                        argCount++;
+                    } while (match(TOKEN_COMMA));
+                }
+                consume(TOKEN_RIGHT_PAREN, "Expect ')' after arguments.");
+                emitBytes(OP_CALL, argCount);
+            } else {
+                emitBytes(OP_GET_FIELD, fieldName);
+            }
+            emitByte(OP_POP);
         } else {
             // Just an expression statement starting with identifier
             namedVariable(name, true);

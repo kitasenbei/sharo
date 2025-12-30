@@ -1,0 +1,100 @@
+// Sharo Methods Test File
+// Testing: type definitions with methods, self keyword, method calls
+
+print("=== Basic Method Test ===")
+
+type Counter {
+    value: int
+
+    increment() {
+        self.value = self.value + 1
+    }
+
+    getValue() int {
+        return self.value
+    }
+}
+
+c := Counter(0)
+print("Initial value:")
+print(c.getValue())
+
+c.increment()
+print("After increment:")
+print(c.getValue())
+
+c.increment()
+c.increment()
+print("After two more increments:")
+print(c.getValue())
+
+print("=== Method with Parameters Test ===")
+
+type Calculator {
+    result: int
+
+    add(n int) {
+        self.result = self.result + n
+    }
+
+    multiply(n int) {
+        self.result = self.result * n
+    }
+
+    getResult() int {
+        return self.result
+    }
+}
+
+calc := Calculator(10)
+print("Initial result:")
+print(calc.getResult())
+
+calc.add(5)
+print("After add(5):")
+print(calc.getResult())
+
+calc.multiply(2)
+print("After multiply(2):")
+print(calc.getResult())
+
+print("=== Method Returning Value Test ===")
+
+type Point {
+    x: int,
+    y: int
+
+    distanceFromOrigin() int {
+        return self.x * self.x + self.y * self.y
+    }
+
+    translate(dx int, dy int) {
+        self.x = self.x + dx
+        self.y = self.y + dy
+    }
+}
+
+p := Point(3, 4)
+print("Point:")
+print(p)
+print("Distance squared from origin:")
+print(p.distanceFromOrigin())
+
+p.translate(1, 1)
+print("After translate(1, 1):")
+print(p)
+print("New distance squared:")
+print(p.distanceFromOrigin())
+
+print("=== Multiple Instances with Methods ===")
+
+c1 := Counter(100)
+c2 := Counter(200)
+
+c1.increment()
+print("c1 after increment:")
+print(c1.getValue())
+print("c2 (should be unchanged):")
+print(c2.getValue())
+
+print("=== All Method Tests Passed! ===")

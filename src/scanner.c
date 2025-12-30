@@ -147,7 +147,12 @@ static TokenType identifierType(void) {
             if (scanner.current - scanner.start > 1) {
                 switch (scanner.start[1]) {
                     case 'l': return checkKeyword(2, 2, "se", TOKEN_ELSE);
-                    case 'x': return checkKeyword(2, 4, "tern", TOKEN_EXTERN);
+                    case 'x':
+                        if (scanner.current - scanner.start > 2) {
+                            if (scanner.start[2] == 't') return checkKeyword(2, 4, "tern", TOKEN_EXTERN);
+                            if (scanner.start[2] == 'p') return checkKeyword(2, 4, "port", TOKEN_EXPORT);
+                        }
+                        break;
                 }
             }
             break;
@@ -166,6 +171,7 @@ static TokenType identifierType(void) {
                     case 'f':
                         if (scanner.current - scanner.start == 2) return TOKEN_IF;
                         break;
+                    case 'm': return checkKeyword(2, 4, "port", TOKEN_IMPORT);
                     case 'n':
                         if (scanner.current - scanner.start == 2) return TOKEN_IN;
                         return checkKeyword(2, 1, "t", TOKEN_INT);
@@ -184,7 +190,14 @@ static TokenType identifierType(void) {
         case 'o': return checkKeyword(1, 1, "r", TOKEN_OR);
         case 'p': return checkKeyword(1, 2, "tr", TOKEN_PTR);
         case 'r': return checkKeyword(1, 5, "eturn", TOKEN_RETURN);
-        case 's': return checkKeyword(1, 2, "tr", TOKEN_STR);
+        case 's':
+            if (scanner.current - scanner.start > 1) {
+                switch (scanner.start[1]) {
+                    case 't': return checkKeyword(2, 1, "r", TOKEN_STR);
+                    case 'e': return checkKeyword(2, 2, "lf", TOKEN_SELF);
+                }
+            }
+            break;
         case 't':
             if (scanner.current - scanner.start > 1) {
                 switch (scanner.start[1]) {
@@ -359,6 +372,9 @@ const char* tokenTypeName(TokenType type) {
         case TOKEN_CONTINUE: return "CONTINUE";
         case TOKEN_TYPE: return "TYPE";
         case TOKEN_EXTERN: return "EXTERN";
+        case TOKEN_SELF: return "SELF";
+        case TOKEN_IMPORT: return "IMPORT";
+        case TOKEN_EXPORT: return "EXPORT";
         case TOKEN_AND: return "AND";
         case TOKEN_OR: return "OR";
         case TOKEN_NOT: return "NOT";

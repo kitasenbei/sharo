@@ -1,0 +1,25 @@
+// Math module - defines utility functions and constants
+
+PI := 3.14159
+
+square(n int) int {
+    return n * n
+}
+
+cube(n int) int {
+    return n * n * n
+}
+
+max(a int, b int) int {
+    if a > b {
+        return a
+    }
+    return b
+}
+
+min(a int, b int) int {
+    if a < b {
+        return a
+    }
+    return b
+}

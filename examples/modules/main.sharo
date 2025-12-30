@@ -1,0 +1,22 @@
+// Main file that imports the math module
+
+import "examples/modules/math.sharo"
+
+print("=== Module Import Test ===")
+
+print("PI =")
+print(PI)
+
+print("square(5) =")
+print(square(5))
+
+print("cube(3) =")
+print(cube(3))
+
+print("max(10, 20) =")
+print(max(10, 20))
+
+print("min(10, 20) =")
+print(min(10, 20))
+
+print("=== Module Test Passed! ===")

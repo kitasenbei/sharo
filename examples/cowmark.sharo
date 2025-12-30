@@ -1,0 +1,207 @@
+// Cowmark - Sprite Benchmark for Sharo
+// A "bunnymark" style benchmark using cows
+// Press SPACE to add 100 more cows
+// Press ESC to quit
+
+// SDL constants
+SDL_INIT_VIDEO := 0x00000020
+SDL_EVENT_QUIT := 256
+SDL_EVENT_KEY_DOWN := 768
+
+KEY_SPACE := 44
+KEY_ESC := 41
+
+// Window size
+WIDTH := 800
+HEIGHT := 600
+
+// Sprite properties stored in parallel arrays
+MAX_COWS := 10000
+cowX := []
+cowY := []
+cowVX := []
+cowVY := []
+cowCount := 0
+
+// Physics
+GRAVITY := 0.5
+
+// Add a batch of cows
+addCows(count int) {
+    i := 0
+    for i < count {
+        if cowCount >= MAX_COWS {
+            return
+        }
+        push(cowX, random(WIDTH - 32))
+        push(cowY, random(HEIGHT / 2))
+        push(cowVX, randomFloat() * 10.0 - 5.0)
+        push(cowVY, randomFloat() * 5.0)
+        cowCount = cowCount + 1
+        i = i + 1
+    }
+}
+
+// Update all cows
+updateCows() {
+    i := 0
+    for i < cowCount {
+        // Apply velocity
+        cowX[i] = cowX[i] + cowVX[i]
+        cowY[i] = cowY[i] + cowVY[i]
+
+        // Apply gravity
+        cowVY[i] = cowVY[i] + GRAVITY
+
+        // Bounce off walls
+        if cowX[i] < 0 {
+            cowX[i] = 0
+            cowVX[i] = 0 - cowVX[i]
+        }
+        if cowX[i] > WIDTH - 32 {
+            cowX[i] = WIDTH - 32
+            cowVX[i] = 0 - cowVX[i]
+        }
+
+        // Bounce off floor
+        if cowY[i] > HEIGHT - 32 {
+            cowY[i] = HEIGHT - 32
+            cowVY[i] = 0 - cowVY[i] * 0.85
+        }
+
+        // Bounce off ceiling
+        if cowY[i] < 0 {
+            cowY[i] = 0
+            cowVY[i] = 0 - cowVY[i]
+        }
+
+        i = i + 1
+    }
+}
+
+// Draw all cows
+drawCows(renderer ptr, texture ptr) {
+    i := 0
+    for i < cowCount {
+        drawTexture(renderer, texture, cowX[i], cowY[i], 32, 32)
+        i = i + 1
+    }
+}
+
+// Convert int to string (simple implementation)
+intToStr(n int) str {
+    if n == 0 {
+        return "0"
+    }
+    result := ""
+    temp := n
+    for temp > 0 {
+        digit := temp % 10
+        if digit == 0 { result = "0" + result }
+        else if digit == 1 { result = "1" + result }
+        else if digit == 2 { result = "2" + result }
+        else if digit == 3 { result = "3" + result }
+        else if digit == 4 { result = "4" + result }
+        else if digit == 5 { result = "5" + result }
+        else if digit == 6 { result = "6" + result }
+        else if digit == 7 { result = "7" + result }
+        else if digit == 8 { result = "8" + result }
+        else if digit == 9 { result = "9" + result }
+        temp = temp / 10
+    }
+    return result
+}
+
+// Main
+print("=== Cowmark Benchmark ===")
+print("Press SPACE to add 100 cows")
+print("Press ESC to quit")
+
+init(SDL_INIT_VIDEO)
+initTTF()
+
+window := createWindow("Cowmark - Sharo Benchmark", WIDTH, HEIGHT, 0)
+renderer := createRenderer(window)
+
+// Load font
+font := loadFont("/usr/share/fonts/adwaita-mono-fonts/AdwaitaMono-Bold.ttf", 24)
+if font == nil {
+    print("Failed to load font!")
+}
+
+// Load cow texture
+cowTexture := loadTexture(renderer, "assets/cow.bmp")
+if cowTexture == nil {
+    print("Failed to load cow.bmp!")
+    destroyRenderer(renderer)
+    destroyWindow(window)
+    quitTTF()
+    quit()
+}
+
+// Start with some cows
+addCows(100)
+
+running := true
+frameCount := 0
+fps := 0
+lastTicks := getTicks()
+
+for running {
+    // Handle events
+    event := pollEvent()
+
+    if event == SDL_EVENT_QUIT {
+        running = false
+    } else if event == SDL_EVENT_KEY_DOWN {
+        key := eventKey()
+        if key == KEY_ESC {
+            running = false
+        } else if key == KEY_SPACE {
+            addCows(100)
+        }
+    }
+
+    // Update
+    updateCows()
+
+    // Calculate FPS
+    frameCount = frameCount + 1
+    currentTicks := getTicks()
+    if currentTicks - lastTicks >= 1000 {
+        fps = frameCount
+        frameCount = 0
+        lastTicks = currentTicks
+    }
+
+    // Render
+    setDrawColor(renderer, 50, 120, 200, 255)
+    clear(renderer)
+
+    drawCows(renderer, cowTexture)
+
+    // Draw HUD background
+    setDrawColor(renderer, 0, 0, 0, 200)
+    fillRect(renderer, 5, 5, 200, 60)
+
+    // Draw text
+    if font != nil {
+        drawText(renderer, font, "FPS: " + intToStr(fps), 10, 10, 255, 255, 0)
+        drawText(renderer, font, "Cows: " + intToStr(cowCount), 10, 35, 255, 255, 255)
+    }
+
+    present(renderer)
+    delay(1)
+}
+
+print("Final cow count:")
+print(cowCount)
+
+destroyTexture(cowTexture)
+if font != nil {
+    destroyFont(font)
+}
+destroyRenderer(renderer)
+destroyWindow(window)
+quitTTF()
+quit()

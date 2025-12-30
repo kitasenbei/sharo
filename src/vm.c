@@ -1,9 +1,11 @@
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
 
 #include "common.h"
 #include "chunk.h"
@@ -16,6 +18,29 @@
 #include "vm.h"
 
 VM vm;
+
+// Read file for module loading
+static char* readFile(const char* path) {
+    FILE* file = fopen(path, "rb");
+    if (file == NULL) {
+        return NULL;
+    }
+
+    fseek(file, 0L, SEEK_END);
+    size_t fileSize = ftell(file);
+    rewind(file);
+
+    char* buffer = (char*)malloc(fileSize + 1);
+    if (buffer == NULL) {
+        fclose(file);
+        return NULL;
+    }
+
+    size_t bytesRead = fread(buffer, sizeof(char), fileSize, file);
+    buffer[bytesRead] = '\0';
+    fclose(file);
+    return buffer;
+}
 
 static void resetStack(void) {
     vm.stackTop = vm.stack;
@@ -191,6 +216,193 @@ static Value getTicksNative(int argCount, Value* args) {
     return INT_VAL((int64_t)SDL_GetTicks());
 }
 
+// loadTexture(renderer, path) -> ptr (loads BMP image)
+static Value loadTextureNative(int argCount, Value* args) {
+    (void)argCount;
+    SDL_Renderer* renderer = (SDL_Renderer*)AS_PTR(args[0]);
+    const char* path = AS_CSTRING(args[1]);
+
+    SDL_Surface* surface = SDL_LoadBMP(path);
+    if (surface == NULL) {
+        fprintf(stderr, "Failed to load image: %s\n", SDL_GetError());
+        return PTR_VAL(NULL);
+    }
+
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_DestroySurface(surface);
+
+    if (texture == NULL) {
+        fprintf(stderr, "Failed to create texture: %s\n", SDL_GetError());
+        return PTR_VAL(NULL);
+    }
+
+    return PTR_VAL(texture);
+}
+
+// destroyTexture(texture)
+static Value destroyTextureNative(int argCount, Value* args) {
+    (void)argCount;
+    SDL_Texture* texture = (SDL_Texture*)AS_PTR(args[0]);
+    if (texture != NULL) {
+        SDL_DestroyTexture(texture);
+    }
+    return NIL_VAL;
+}
+
+// drawTexture(renderer, texture, x, y, w, h) -> bool
+static Value drawTextureNative(int argCount, Value* args) {
+    (void)argCount;
+    SDL_Renderer* renderer = (SDL_Renderer*)AS_PTR(args[0]);
+    SDL_Texture* texture = (SDL_Texture*)AS_PTR(args[1]);
+
+    SDL_FRect dest;
+    dest.x = (float)AS_NUMBER(args[2]);
+    dest.y = (float)AS_NUMBER(args[3]);
+    dest.w = (float)AS_NUMBER(args[4]);
+    dest.h = (float)AS_NUMBER(args[5]);
+
+    return BOOL_VAL(SDL_RenderTexture(renderer, texture, NULL, &dest));
+}
+
+// getTextureSize(texture) -> array [width, height]
+static Value getTextureSizeNative(int argCount, Value* args) {
+    (void)argCount;
+    SDL_Texture* texture = (SDL_Texture*)AS_PTR(args[0]);
+
+    float w, h;
+    SDL_GetTextureSize(texture, &w, &h);
+
+    ObjArray* arr = newArray();
+    writeArray(arr, INT_VAL((int64_t)w));
+    writeArray(arr, INT_VAL((int64_t)h));
+    return OBJ_VAL(arr);
+}
+
+// random(max) -> int (0 to max-1)
+static Value randomNative(int argCount, Value* args) {
+    (void)argCount;
+    int64_t max = AS_INT(args[0]);
+    if (max <= 0) return INT_VAL(0);
+    return INT_VAL(rand() % max);
+}
+
+// randomFloat() -> float (0.0 to 1.0)
+static Value randomFloatNative(int argCount, Value* args) {
+    (void)argCount;
+    (void)args;
+    return FLOAT_VAL((double)rand() / RAND_MAX);
+}
+
+// ============ SDL3_ttf Native Functions ============
+
+// initTTF() -> bool
+static Value initTTFNative(int argCount, Value* args) {
+    (void)argCount;
+    (void)args;
+    return BOOL_VAL(TTF_Init());
+}
+
+// quitTTF()
+static Value quitTTFNative(int argCount, Value* args) {
+    (void)argCount;
+    (void)args;
+    TTF_Quit();
+    return NIL_VAL;
+}
+
+// loadFont(path, size) -> ptr
+static Value loadFontNative(int argCount, Value* args) {
+    (void)argCount;
+    const char* path = AS_CSTRING(args[0]);
+    float size = (float)AS_NUMBER(args[1]);
+    TTF_Font* font = TTF_OpenFont(path, size);
+    if (font == NULL) {
+        fprintf(stderr, "Failed to load font: %s\n", SDL_GetError());
+        return PTR_VAL(NULL);
+    }
+    return PTR_VAL(font);
+}
+
+// destroyFont(font)
+static Value destroyFontNative(int argCount, Value* args) {
+    (void)argCount;
+    TTF_Font* font = (TTF_Font*)AS_PTR(args[0]);
+    if (font != NULL) {
+        TTF_CloseFont(font);
+    }
+    return NIL_VAL;
+}
+
+// drawText(renderer, font, text, x, y, r, g, b) -> bool
+static Value drawTextNative(int argCount, Value* args) {
+    (void)argCount;
+    SDL_Renderer* renderer = (SDL_Renderer*)AS_PTR(args[0]);
+    TTF_Font* font = (TTF_Font*)AS_PTR(args[1]);
+    const char* text = AS_CSTRING(args[2]);
+    float x = (float)AS_NUMBER(args[3]);
+    float y = (float)AS_NUMBER(args[4]);
+    Uint8 r = (Uint8)AS_INT(args[5]);
+    Uint8 g = (Uint8)AS_INT(args[6]);
+    Uint8 b = (Uint8)AS_INT(args[7]);
+
+    SDL_Color color = {r, g, b, 255};
+    SDL_Surface* surface = TTF_RenderText_Blended(font, text, 0, color);
+    if (surface == NULL) {
+        return BOOL_VAL(false);
+    }
+
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_DestroySurface(surface);
+    if (texture == NULL) {
+        return BOOL_VAL(false);
+    }
+
+    float w, h;
+    SDL_GetTextureSize(texture, &w, &h);
+    SDL_FRect dest = {x, y, w, h};
+    SDL_RenderTexture(renderer, texture, NULL, &dest);
+    SDL_DestroyTexture(texture);
+
+    return BOOL_VAL(true);
+}
+
+// ============ Array Native Functions ============
+
+// len(arr) -> int (also works on strings)
+static Value lenNative(int argCount, Value* args) {
+    (void)argCount;
+    if (IS_ARRAY(args[0])) {
+        return INT_VAL(AS_ARRAY(args[0])->count);
+    } else if (IS_STRING(args[0])) {
+        return INT_VAL(AS_STRING(args[0])->length);
+    }
+    return INT_VAL(0);
+}
+
+// push(arr, value) -> int (new length)
+static Value pushNative(int argCount, Value* args) {
+    (void)argCount;
+    if (!IS_ARRAY(args[0])) {
+        return NIL_VAL;
+    }
+    ObjArray* array = AS_ARRAY(args[0]);
+    writeArray(array, args[1]);
+    return INT_VAL(array->count);
+}
+
+// pop(arr) -> value (last element)
+static Value popNative(int argCount, Value* args) {
+    (void)argCount;
+    if (!IS_ARRAY(args[0])) {
+        return NIL_VAL;
+    }
+    ObjArray* array = AS_ARRAY(args[0]);
+    if (array->count == 0) {
+        return NIL_VAL;
+    }
+    return array->elements[--array->count];
+}
+
 static void defineNative(const char* name, NativeFn function) {
     push(OBJ_VAL(copyString(name, (int)strlen(name))));
     push(OBJ_VAL(newNative(function)));
@@ -229,6 +441,24 @@ void initVM(void) {
     defineNative("eventKey", eventKeyNative);
     defineNative("delay", delayNative);
     defineNative("getTicks", getTicksNative);
+    defineNative("loadTexture", loadTextureNative);
+    defineNative("destroyTexture", destroyTextureNative);
+    defineNative("drawTexture", drawTextureNative);
+    defineNative("getTextureSize", getTextureSizeNative);
+    defineNative("random", randomNative);
+    defineNative("randomFloat", randomFloatNative);
+
+    // TTF functions
+    defineNative("initTTF", initTTFNative);
+    defineNative("quitTTF", quitTTFNative);
+    defineNative("loadFont", loadFontNative);
+    defineNative("destroyFont", destroyFontNative);
+    defineNative("drawText", drawTextNative);
+
+    // Array functions
+    defineNative("len", lenNative);
+    defineNative("push", pushNative);
+    defineNative("pop", popNative);
 }
 
 void freeVM(void) {
@@ -609,6 +839,42 @@ static InterpretResult run(void) {
                     newFrame->ip = closure->function->chunk->code;
                     newFrame->slots = vm.stackTop - argCount - 1;
                     frame = newFrame;
+                } else if (IS_STRUCT_DEF(callee)) {
+                    // Struct constructor call: Point(10, 20)
+                    ObjStructDef* def = AS_STRUCT_DEF(callee);
+                    if (argCount != def->fieldCount) {
+                        runtimeError("Expected %d arguments but got %d.",
+                                     def->fieldCount, argCount);
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    ObjStruct* instance = newStruct(def);
+                    // Fill fields from stack args
+                    for (int i = 0; i < argCount; i++) {
+                        instance->fields[i] = peek(argCount - 1 - i);
+                    }
+                    // Pop args and struct def, push instance
+                    vm.stackTop -= argCount + 1;
+                    push(OBJ_VAL(instance));
+                } else if (IS_BOUND_METHOD(callee)) {
+                    // Bound method call
+                    ObjBoundMethod* bound = AS_BOUND_METHOD(callee);
+                    ObjClosure* closure = bound->method;
+                    if (argCount != closure->function->arity) {
+                        runtimeError("Expected %d arguments but got %d.",
+                                     closure->function->arity, argCount);
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    if (vm.frameCount == FRAMES_MAX) {
+                        runtimeError("Stack overflow.");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    // Put receiver in slot 0
+                    vm.stackTop[-argCount - 1] = bound->receiver;
+                    CallFrame* newFrame = &vm.frames[vm.frameCount++];
+                    newFrame->closure = closure;
+                    newFrame->ip = closure->function->chunk->code;
+                    newFrame->slots = vm.stackTop - argCount - 1;
+                    frame = newFrame;
                 } else {
                     runtimeError("Can only call functions.");
                     return INTERPRET_RUNTIME_ERROR;
@@ -652,6 +918,259 @@ static InterpretResult run(void) {
             case OP_PRINT: {
                 printValue(pop());
                 printf("\n");
+                break;
+            }
+
+            case OP_ARRAY: {
+                int count = READ_BYTE();
+                ObjArray* array = newArray();
+                // Push array first to protect from GC
+                push(OBJ_VAL(array));
+
+                // Copy elements from stack to array (in correct order)
+                // Elements are on stack: [elem0, elem1, ..., elemN-1, array]
+                // peek(count) is elem0, peek(1) is elemN-1
+                for (int i = count - 1; i >= 0; i--) {
+                    writeArray(array, peek(i + 1));
+                }
+
+                // Pop the elements and the temporary array ref
+                vm.stackTop -= count + 1;
+                push(OBJ_VAL(array));
+                break;
+            }
+
+            case OP_INDEX_GET: {
+                Value indexVal = pop();
+                Value arrayVal = pop();
+
+                if (!IS_ARRAY(arrayVal)) {
+                    runtimeError("Can only index arrays.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                if (!IS_INT(indexVal)) {
+                    runtimeError("Array index must be an integer.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjArray* array = AS_ARRAY(arrayVal);
+                int64_t index = AS_INT(indexVal);
+
+                if (index < 0 || index >= array->count) {
+                    runtimeError("Array index %lld out of bounds [0, %d).",
+                                 (long long)index, array->count);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                push(array->elements[index]);
+                break;
+            }
+
+            case OP_INDEX_SET: {
+                Value value = pop();
+                Value indexVal = pop();
+                Value arrayVal = pop();
+
+                if (!IS_ARRAY(arrayVal)) {
+                    runtimeError("Can only index arrays.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                if (!IS_INT(indexVal)) {
+                    runtimeError("Array index must be an integer.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjArray* array = AS_ARRAY(arrayVal);
+                int64_t index = AS_INT(indexVal);
+
+                if (index < 0 || index >= array->count) {
+                    runtimeError("Array index %lld out of bounds [0, %d).",
+                                 (long long)index, array->count);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                array->elements[index] = value;
+                push(value);
+                break;
+            }
+
+            case OP_STRUCT_DEF: {
+                int fieldCount = READ_BYTE();
+                ObjString* name = READ_STRING();
+                ObjStructDef* def = newStructDef(name);
+                def->fieldCount = fieldCount;
+                def->fieldNames = ALLOCATE(ObjString*, fieldCount);
+                // Initialize all field names to NULL
+                for (int i = 0; i < fieldCount; i++) {
+                    def->fieldNames[i] = NULL;
+                }
+                // Field names will be added by OP_STRUCT_FIELD
+                push(OBJ_VAL(def));
+                break;
+            }
+
+            case OP_STRUCT_FIELD: {
+                ObjString* fieldName = READ_STRING();
+                ObjStructDef* def = AS_STRUCT_DEF(peek(0));
+                // Find next empty slot in fieldNames
+                for (int i = 0; i < def->fieldCount; i++) {
+                    if (def->fieldNames[i] == NULL) {
+                        def->fieldNames[i] = fieldName;
+                        break;
+                    }
+                }
+                break;
+            }
+
+            case OP_GET_FIELD: {
+                if (!IS_STRUCT(peek(0))) {
+                    runtimeError("Only struct instances have fields.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                Value receiver = peek(0);
+                ObjStruct* instance = AS_STRUCT(receiver);
+                ObjString* name = READ_STRING();
+
+                // Find field index
+                int fieldIndex = -1;
+                for (int i = 0; i < instance->definition->fieldCount; i++) {
+                    if (instance->definition->fieldNames[i] == name) {
+                        fieldIndex = i;
+                        break;
+                    }
+                }
+
+                if (fieldIndex != -1) {
+                    pop(); // pop instance
+                    push(instance->fields[fieldIndex]);
+                    break;
+                }
+
+                // Not a field - try to find a method
+                Value method;
+                if (tableGet(&instance->definition->methods, name, &method)) {
+                    pop(); // pop instance
+                    ObjBoundMethod* bound = newBoundMethod(receiver, AS_CLOSURE(method));
+                    push(OBJ_VAL(bound));
+                    break;
+                }
+
+                runtimeError("Undefined property '%s'.", name->chars);
+                return INTERPRET_RUNTIME_ERROR;
+            }
+
+            case OP_SET_FIELD: {
+                if (!IS_STRUCT(peek(1))) {
+                    runtimeError("Only struct instances have fields.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjStruct* instance = AS_STRUCT(peek(1));
+                ObjString* name = READ_STRING();
+                Value value = pop();
+
+                // Find field index
+                int fieldIndex = -1;
+                for (int i = 0; i < instance->definition->fieldCount; i++) {
+                    if (instance->definition->fieldNames[i] == name) {
+                        fieldIndex = i;
+                        break;
+                    }
+                }
+
+                if (fieldIndex == -1) {
+                    runtimeError("Undefined field '%s'.", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                instance->fields[fieldIndex] = value;
+                pop(); // pop instance
+                push(value);
+                break;
+            }
+
+            case OP_METHOD: {
+                ObjString* name = READ_STRING();
+                Value method = peek(0);
+                ObjStructDef* def = AS_STRUCT_DEF(peek(1));
+                tableSet(&def->methods, name, method);
+                pop(); // pop the closure
+                break;
+            }
+
+            case OP_INVOKE: {
+                ObjString* methodName = READ_STRING();
+                int argCount = READ_BYTE();
+
+                Value receiver = peek(argCount);
+                if (!IS_STRUCT(receiver)) {
+                    runtimeError("Only struct instances have methods.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjStruct* instance = AS_STRUCT(receiver);
+
+                // Look up method
+                Value method;
+                if (!tableGet(&instance->definition->methods, methodName, &method)) {
+                    runtimeError("Undefined method '%s'.", methodName->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                // Call method with receiver in slot 0
+                ObjClosure* closure = AS_CLOSURE(method);
+                if (argCount != closure->function->arity) {
+                    runtimeError("Expected %d arguments but got %d.",
+                        closure->function->arity, argCount);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                if (vm.frameCount == FRAMES_MAX) {
+                    runtimeError("Stack overflow.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                CallFrame* newFrame = &vm.frames[vm.frameCount++];
+                newFrame->closure = closure;
+                newFrame->ip = closure->function->chunk->code;
+                newFrame->slots = vm.stackTop - argCount - 1;
+                frame = newFrame;
+                break;
+            }
+
+            case OP_IMPORT: {
+                ObjString* path = READ_STRING();
+
+                // Read the module file
+                char* source = readFile(path->chars);
+                if (source == NULL) {
+                    runtimeError("Could not open module '%s'.", path->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                // Compile the module
+                ObjFunction* moduleFunc = compile(source);
+                free(source);
+
+                if (moduleFunc == NULL) {
+                    runtimeError("Error compiling module '%s'.", path->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                // Execute the module - it shares globals with the main script
+                push(OBJ_VAL(moduleFunc));
+                ObjClosure* moduleClosure = newClosure(moduleFunc);
+                pop();
+                push(OBJ_VAL(moduleClosure));
+
+                CallFrame* moduleFrame = &vm.frames[vm.frameCount++];
+                moduleFrame->closure = moduleClosure;
+                moduleFrame->ip = moduleFunc->chunk->code;
+                moduleFrame->slots = vm.stackTop - 1;
+
+                // Continue execution in the module
+                frame = moduleFrame;
                 break;
             }
 

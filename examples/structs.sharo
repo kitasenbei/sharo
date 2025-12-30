@@ -1,0 +1,74 @@
+// Sharo Structs Test File
+// Testing: type definitions, constructors, field access, field assignment
+
+print("=== Basic Struct Test ===")
+
+// Define a simple Point struct
+type Point {
+    x: int,
+    y: int
+}
+
+// Create instance using constructor syntax
+p := Point(10, 20)
+print("Created Point:")
+print(p)
+
+print("=== Field Access Test ===")
+print("p.x =")
+print(p.x)
+print("p.y =")
+print(p.y)
+
+print("=== Field Assignment Test ===")
+p.x = 100
+p.y = 200
+print("After assignment:")
+print("p.x =")
+print(p.x)
+print("p.y =")
+print(p.y)
+print(p)
+
+print("=== Multiple Structs Test ===")
+
+type Rectangle {
+    width: int,
+    height: int
+}
+
+rect := Rectangle(50, 30)
+print("Created Rectangle:")
+print(rect)
+print("rect.width =")
+print(rect.width)
+print("rect.height =")
+print(rect.height)
+
+print("=== Nested Values Test ===")
+
+// Struct with computed values
+a := 5
+b := 10
+p2 := Point(a * 2, b + 5)
+print("Point with computed values:")
+print(p2)
+
+print("=== Multiple Instances Test ===")
+
+p3 := Point(1, 2)
+p4 := Point(3, 4)
+print("p3:")
+print(p3)
+print("p4:")
+print(p4)
+
+// Modify one, other should be unchanged
+p3.x = 999
+print("After modifying p3.x:")
+print("p3:")
+print(p3)
+print("p4 (should be unchanged):")
+print(p4)
+
+print("=== All Struct Tests Passed! ===")

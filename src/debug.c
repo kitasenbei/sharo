@@ -156,12 +156,36 @@ int disassembleInstruction(Chunk* chunk, int offset) {
             return byteInstruction("OP_NATIVE_CALL", chunk, offset);
         case OP_PRINT:
             return simpleInstruction("OP_PRINT", offset);
-        case OP_STRUCT:
-            return constantInstruction("OP_STRUCT", chunk, offset);
+        case OP_STRUCT_DEF:
+            return byteInstruction("OP_STRUCT_DEF", chunk, offset);
+        case OP_STRUCT_FIELD:
+            return constantInstruction("OP_STRUCT_FIELD", chunk, offset);
+        case OP_STRUCT_CALL:
+            return byteInstruction("OP_STRUCT_CALL", chunk, offset);
         case OP_GET_FIELD:
             return constantInstruction("OP_GET_FIELD", chunk, offset);
         case OP_SET_FIELD:
             return constantInstruction("OP_SET_FIELD", chunk, offset);
+        case OP_ARRAY:
+            return byteInstruction("OP_ARRAY", chunk, offset);
+        case OP_INDEX_GET:
+            return simpleInstruction("OP_INDEX_GET", offset);
+        case OP_INDEX_SET:
+            return simpleInstruction("OP_INDEX_SET", offset);
+        case OP_METHOD:
+            return constantInstruction("OP_METHOD", chunk, offset);
+        case OP_INVOKE: {
+            uint8_t constant = chunk->code[offset + 1];
+            uint8_t argCount = chunk->code[offset + 2];
+            printf("%-20s (%d args) %4d '", "OP_INVOKE", argCount, constant);
+            printValue(chunk->constants.values[constant]);
+            printf("'\n");
+            return offset + 3;
+        }
+        case OP_GET_SELF:
+            return simpleInstruction("OP_GET_SELF", offset);
+        case OP_IMPORT:
+            return constantInstruction("OP_IMPORT", chunk, offset);
         default:
             printf("Unknown opcode %d\n", instruction);
             return offset + 1;

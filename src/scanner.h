@@ -40,7 +40,8 @@ typedef enum {
     TOKEN_BREAK, TOKEN_CONTINUE,
 
     // Keywords - Declarations
-    TOKEN_TYPE, TOKEN_EXTERN,
+    TOKEN_TYPE, TOKEN_EXTERN, TOKEN_SELF,
+    TOKEN_IMPORT, TOKEN_EXPORT,
 
     // Keywords - Logical
     TOKEN_AND, TOKEN_OR, TOKEN_NOT,

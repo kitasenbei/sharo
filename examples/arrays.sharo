@@ -1,0 +1,62 @@
+// Sharo Arrays Test
+
+// Create an array literal
+arr := [1, 2, 3, 4, 5]
+print("Array created:")
+print(arr)
+
+// Access elements
+print("First element:")
+print(arr[0])
+
+print("Third element:")
+print(arr[2])
+
+// Modify elements
+arr[0] = 100
+print("After arr[0] = 100:")
+print(arr)
+
+// Get length
+print("Length:")
+print(len(arr))
+
+// Push elements
+push(arr, 6)
+push(arr, 7)
+print("After push(arr, 6) and push(arr, 7):")
+print(arr)
+print("New length:")
+print(len(arr))
+
+// Pop elements
+last := pop(arr)
+print("Popped value:")
+print(last)
+print("After pop:")
+print(arr)
+
+// Empty array
+empty := []
+print("Empty array:")
+print(empty)
+print("Empty array length:")
+print(len(empty))
+
+// Array with mixed types
+mixed := [1, 3.14, true, "hello"]
+print("Mixed array:")
+print(mixed)
+
+// Nested access in expressions
+nums := [10, 20, 30]
+sum := nums[0] + nums[1] + nums[2]
+print("Sum of [10, 20, 30]:")
+print(sum)
+
+// String length with len()
+message := "Hello, Sharo!"
+print("String length:")
+print(len(message))
+
+print("Arrays test complete!")
