@@ -165,6 +165,18 @@ static Value setDrawColorNative(int argCount, Value* args) {
     return BOOL_VAL(SDL_SetRenderDrawColor(renderer, r, g, b, a));
 }
 
+// setBlendMode(renderer, mode) - 0=none, 1=blend, 2=add, 3=mod
+static Value setBlendModeNative(int argCount, Value* args) {
+    (void)argCount;
+    SDL_Renderer* renderer = (SDL_Renderer*)AS_PTR(args[0]);
+    int mode = (int)AS_INT(args[1]);
+    SDL_BlendMode blendMode = SDL_BLENDMODE_NONE;
+    if (mode == 1) blendMode = SDL_BLENDMODE_BLEND;
+    else if (mode == 2) blendMode = SDL_BLENDMODE_ADD;
+    else if (mode == 3) blendMode = SDL_BLENDMODE_MOD;
+    return BOOL_VAL(SDL_SetRenderDrawBlendMode(renderer, blendMode));
+}
+
 // fillRect(renderer, x, y, w, h) -> bool
 static Value fillRectNative(int argCount, Value* args) {
     (void)argCount;
@@ -543,6 +555,7 @@ void initVM(void) {
     defineNative("clear", clearNative);
     defineNative("present", presentNative);
     defineNative("setDrawColor", setDrawColorNative);
+    defineNative("setBlendMode", setBlendModeNative);
     defineNative("fillRect", fillRectNative);
     defineNative("drawRect", drawRectNative);
     defineNative("pollEvent", pollEventNative);

@@ -1,0 +1,349 @@
+// Fireworks Demo - Sharo
+// Click anywhere or press SPACE to launch fireworks
+
+SDL_INIT_VIDEO := 0x00000020
+SDL_EVENT_QUIT := 256
+SDL_EVENT_KEY_DOWN := 768
+SDL_EVENT_MOUSE_DOWN := 1025
+
+KEY_SPACE := 44
+KEY_ESC := 41
+
+WIDTH := 1280
+HEIGHT := 720
+
+// Particle system - parallel arrays for performance
+MAX_PARTICLES := 5000
+px := []      // x position
+py := []      // y position
+pvx := []     // x velocity
+pvy := []     // y velocity
+pr := []      // red
+pg := []      // green
+pb := []      // blue
+plife := []   // lifetime remaining
+pcount := 0
+
+// Rocket system
+MAX_ROCKETS := 20
+rx := []
+ry := []
+rvx := []
+rvy := []
+rr := []
+rg := []
+rb := []
+rcount := 0
+
+GRAVITY := 0.15
+DRAG := 0.98
+
+// Initialize arrays
+initArrays() {
+    i := 0
+    for i < MAX_PARTICLES {
+        push(px, 0.0)
+        push(py, 0.0)
+        push(pvx, 0.0)
+        push(pvy, 0.0)
+        push(pr, 0)
+        push(pg, 0)
+        push(pb, 0)
+        push(plife, 0)
+        i = i + 1
+    }
+    i = 0
+    for i < MAX_ROCKETS {
+        push(rx, 0.0)
+        push(ry, 0.0)
+        push(rvx, 0.0)
+        push(rvy, 0.0)
+        push(rr, 0)
+        push(rg, 0)
+        push(rb, 0)
+        i = i + 1
+    }
+}
+
+// Launch a rocket
+launchRocket(x int) {
+    if rcount >= MAX_ROCKETS {
+        return
+    }
+    rx[rcount] = x * 1.0
+    ry[rcount] = HEIGHT * 1.0
+    rvx[rcount] = randomFloat() * 4.0 - 2.0
+    rvy[rcount] = 0.0 - 12.0 - randomFloat() * 4.0
+    // Random bright color
+    c := random(6)
+    if c == 0 {
+        rr[rcount] = 255
+        rg[rcount] = 100
+        rb[rcount] = 100
+    } else if c == 1 {
+        rr[rcount] = 100
+        rg[rcount] = 255
+        rb[rcount] = 100
+    } else if c == 2 {
+        rr[rcount] = 100
+        rg[rcount] = 100
+        rb[rcount] = 255
+    } else if c == 3 {
+        rr[rcount] = 255
+        rg[rcount] = 255
+        rb[rcount] = 100
+    } else if c == 4 {
+        rr[rcount] = 255
+        rg[rcount] = 100
+        rb[rcount] = 255
+    } else {
+        rr[rcount] = 100
+        rg[rcount] = 255
+        rb[rcount] = 255
+    }
+    rcount = rcount + 1
+}
+
+// Explode rocket into particles
+explode(x float, y float, r int, g int, b int) {
+    numParticles := 80 + random(40)
+    i := 0
+    for i < numParticles {
+        if pcount >= MAX_PARTICLES {
+            return
+        }
+        // Find dead particle slot
+        slot := pcount
+        j := 0
+        for j < pcount {
+            if plife[j] <= 0 {
+                slot = j
+                j = pcount  // break
+            }
+            j = j + 1
+        }
+        if slot == pcount {
+            pcount = pcount + 1
+        }
+
+        px[slot] = x
+        py[slot] = y
+        // Random direction in circle
+        angle := randomFloat() * 6.28318
+        speed := 2.0 + randomFloat() * 6.0
+        pvx[slot] = speed * cos(angle)
+        pvy[slot] = speed * sin(angle)
+        // Slight color variation
+        pr[slot] = r + random(30) - 15
+        pg[slot] = g + random(30) - 15
+        pb[slot] = b + random(30) - 15
+        if pr[slot] > 255 { pr[slot] = 255 }
+        if pg[slot] > 255 { pg[slot] = 255 }
+        if pb[slot] > 255 { pb[slot] = 255 }
+        if pr[slot] < 0 { pr[slot] = 0 }
+        if pg[slot] < 0 { pg[slot] = 0 }
+        if pb[slot] < 0 { pb[slot] = 0 }
+        plife[slot] = 60 + random(40)
+        i = i + 1
+    }
+}
+
+// Simple trig using Taylor series
+cos(x float) float {
+    // Normalize to -PI to PI
+    for x > 3.14159 { x = x - 6.28318 }
+    for x < 0.0 - 3.14159 { x = x + 6.28318 }
+    x2 := x * x
+    return 1.0 - x2/2.0 + x2*x2/24.0 - x2*x2*x2/720.0
+}
+
+sin(x float) float {
+    return cos(x - 1.5708)
+}
+
+// Update rockets
+updateRockets() {
+    i := 0
+    for i < rcount {
+        rx[i] = rx[i] + rvx[i]
+        ry[i] = ry[i] + rvy[i]
+        rvy[i] = rvy[i] + GRAVITY
+
+        // Explode when velocity goes positive (apex)
+        if rvy[i] > 0.0 - 2.0 {
+            explode(rx[i], ry[i], rr[i], rg[i], rb[i])
+            // Remove rocket by swapping with last
+            rcount = rcount - 1
+            if i < rcount {
+                rx[i] = rx[rcount]
+                ry[i] = ry[rcount]
+                rvx[i] = rvx[rcount]
+                rvy[i] = rvy[rcount]
+                rr[i] = rr[rcount]
+                rg[i] = rg[rcount]
+                rb[i] = rb[rcount]
+                i = i - 1
+            }
+        }
+        i = i + 1
+    }
+}
+
+// Update particles
+updateParticles() {
+    i := 0
+    for i < pcount {
+        if plife[i] > 0 {
+            px[i] = px[i] + pvx[i]
+            py[i] = py[i] + pvy[i]
+            pvx[i] = pvx[i] * DRAG
+            pvy[i] = pvy[i] * DRAG + GRAVITY
+            plife[i] = plife[i] - 1
+        }
+        i = i + 1
+    }
+}
+
+// Draw everything
+draw(renderer ptr) {
+    // Draw particles
+    i := 0
+    for i < pcount {
+        if plife[i] > 0 {
+            alpha := plife[i] * 4
+            if alpha > 255 { alpha = 255 }
+            setDrawColor(renderer, pr[i], pg[i], pb[i], alpha)
+            size := 2 + plife[i] / 30
+            fillRect(renderer, px[i] - size/2, py[i] - size/2, size, size)
+        }
+        i = i + 1
+    }
+
+    // Draw rockets
+    i = 0
+    for i < rcount {
+        setDrawColor(renderer, rr[i], rg[i], rb[i], 255)
+        fillRect(renderer, rx[i] - 2, ry[i] - 4, 4, 8)
+        // Trail
+        setDrawColor(renderer, 255, 200, 100, 150)
+        fillRect(renderer, rx[i] - 1, ry[i] + 4, 2, 10)
+        i = i + 1
+    }
+}
+
+// Convert int to string for FPS display
+intToStr(n int) str {
+    if n == 0 { return "0" }
+    result := ""
+    temp := n
+    for temp > 0 {
+        digit := temp % 10
+        if digit == 0 { result = "0" + result }
+        else if digit == 1 { result = "1" + result }
+        else if digit == 2 { result = "2" + result }
+        else if digit == 3 { result = "3" + result }
+        else if digit == 4 { result = "4" + result }
+        else if digit == 5 { result = "5" + result }
+        else if digit == 6 { result = "6" + result }
+        else if digit == 7 { result = "7" + result }
+        else if digit == 8 { result = "8" + result }
+        else if digit == 9 { result = "9" + result }
+        temp = temp / 10
+    }
+    return result
+}
+
+// Main
+print("=== Fireworks Demo ===")
+print("Press SPACE or click to launch")
+print("Press ESC to quit")
+
+initArrays()
+
+init(SDL_INIT_VIDEO)
+initTTF()
+
+window := createWindow("Sharo Fireworks", WIDTH, HEIGHT, 0)
+renderer := createRenderer(window)
+
+// Load font for FPS display
+font := loadFont("/usr/share/fonts/adwaita-mono-fonts/AdwaitaMono-Bold.ttf", 20)
+if font == nil {
+    font = loadFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
+}
+
+// Enable alpha blending for trails
+setBlendMode(renderer, 1)
+
+running := true
+autoLaunch := 0
+frameCount := 0
+fps := 0
+lastTicks := getTicks()
+
+for running {
+    event := pollEvent()
+
+    if event == SDL_EVENT_QUIT {
+        running = false
+    } else if event == SDL_EVENT_KEY_DOWN {
+        key := eventKey()
+        if key == KEY_ESC {
+            running = false
+        } else if key == KEY_SPACE {
+            launchRocket(random(WIDTH - 200) + 100)
+        }
+    } else if event == SDL_EVENT_MOUSE_DOWN {
+        // Launch at random position for now
+        launchRocket(random(WIDTH - 200) + 100)
+    }
+
+    // Auto-launch occasionally
+    autoLaunch = autoLaunch + 1
+    if autoLaunch > 60 {
+        if random(100) < 30 {
+            launchRocket(random(WIDTH - 200) + 100)
+        }
+        autoLaunch = 0
+    }
+
+    updateRockets()
+    updateParticles()
+
+    // Dark blue sky with fade effect
+    setDrawColor(renderer, 5, 5, 20, 40)
+    fillRect(renderer, 0, 0, WIDTH, HEIGHT)
+
+    draw(renderer)
+
+    // Calculate FPS
+    frameCount = frameCount + 1
+    currentTicks := getTicks()
+    if currentTicks - lastTicks >= 1000 {
+        fps = frameCount
+        frameCount = 0
+        lastTicks = currentTicks
+    }
+
+    // Draw FPS and particle count
+    if font != nil {
+        setBlendMode(renderer, 0)
+        setDrawColor(renderer, 0, 0, 0, 180)
+        fillRect(renderer, 5, 5, 180, 55)
+        setBlendMode(renderer, 1)
+        drawText(renderer, font, "FPS: " + intToStr(fps), 10, 10, 0, 255, 0)
+        drawText(renderer, font, "Particles: " + intToStr(pcount), 10, 32, 255, 255, 255)
+    }
+
+    present(renderer)
+    delay(16)
+}
+
+if font != nil {
+    destroyFont(font)
+}
+destroyRenderer(renderer)
+destroyWindow(window)
+quitTTF()
+quit()
+print("Done!")
