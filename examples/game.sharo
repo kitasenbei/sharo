@@ -1,0 +1,73 @@
+// Sharo Game - Moving Square with Arrow Keys
+
+// Event constants
+EVENT_QUIT := 256
+EVENT_KEY_DOWN := 768
+
+// Key scancodes (SDL3)
+KEY_RIGHT := 79
+KEY_LEFT := 80
+KEY_DOWN := 81
+KEY_UP := 82
+KEY_ESCAPE := 41
+
+// Initialize
+init(0)
+window := createWindow("Sharo Game", 800, 600, 0)
+renderer := createRenderer(window)
+
+// Player position
+x := 375
+y := 275
+speed := 5
+
+// Game loop
+running := true
+for running {
+    // Handle events
+    event := pollEvent()
+    for event != 0 {
+        if event == EVENT_QUIT {
+            running = false
+        }
+        if event == EVENT_KEY_DOWN {
+            key := eventKey()
+            if key == KEY_RIGHT {
+                x = x + speed
+            }
+            if key == KEY_LEFT {
+                x = x - speed
+            }
+            if key == KEY_DOWN {
+                y = y + speed
+            }
+            if key == KEY_UP {
+                y = y - speed
+            }
+            if key == KEY_ESCAPE {
+                running = false
+            }
+        }
+        event = pollEvent()
+    }
+
+    // Clear screen (dark blue)
+    setDrawColor(renderer, 20, 20, 40, 255)
+    clear(renderer)
+
+    // Draw player (bright green square)
+    setDrawColor(renderer, 0, 255, 100, 255)
+    fillRect(renderer, x, y, 50, 50)
+
+    // Present
+    present(renderer)
+
+    // Cap at ~60 FPS
+    delay(16)
+}
+
+// Cleanup
+destroyRenderer(renderer)
+destroyWindow(window)
+quit()
+print("Thanks for playing!")

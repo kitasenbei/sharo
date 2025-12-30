@@ -1,0 +1,50 @@
+# Build artifacts
+sharo
+*.o
+*.a
+*.so
+*.dylib
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Dependency directories
+deps/
+
+# Build directories
+build/
+out/
+bin/
+obj/
+
+# Test artifacts
+*.log
+core
+core.*
+
+# Profiling
+*.gcda
+*.gcno
+*.gcov
+gmon.out
+
+# Documentation build
+docs/_build/
+
+# Crafting Interpreters reference (local development only)
+crafting_interpreters/
+
+# Environment files
+.env
+.env.local

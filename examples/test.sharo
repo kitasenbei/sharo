@@ -1,0 +1,76 @@
+// Test basic expressions
+print(1 + 2)
+print(10 - 3)
+print(4 * 5)
+print(20 / 4)
+
+// Test variables
+x := 42
+print(x)
+
+y := 10
+y = y + 5
+print(y)
+
+// Test strings
+name := "Sharo"
+print(name)
+
+// Test booleans
+print(true)
+print(false)
+print(not false)
+
+// Test comparisons
+print(10 > 5)
+print(3 < 2)
+print(5 == 5)
+print(5 != 3)
+
+// Test functions
+add(a int, b int) int {
+    return a + b
+}
+
+result := add(3, 4)
+print(result)
+
+greet() {
+    print("Hello from function!")
+}
+
+greet()
+
+// Test if/else
+score := 85
+if score > 90 {
+    print("A")
+} else {
+    if score > 80 {
+        print("B")
+    } else {
+        print("C")
+    }
+}
+
+// Test for loop (while-style)
+count := 0
+for count < 3 {
+    print(count)
+    count = count + 1
+}
+
+// Test closures
+makeCounter() {
+    count := 0
+    increment() {
+        count = count + 1
+        return count
+    }
+    return increment
+}
+
+counter := makeCounter()
+print(counter())
+print(counter())
+print(counter())
