@@ -310,9 +310,9 @@ for running {
     updateRockets()
     updateParticles()
 
-    // Dark blue sky with fade effect
-    setDrawColor(renderer, 5, 5, 20, 40)
-    fillRect(renderer, 0, 0, WIDTH, HEIGHT)
+    // Clear to dark blue
+    setDrawColor(renderer, 10, 10, 30, 255)
+    clear(renderer)
 
     draw(renderer)
 
