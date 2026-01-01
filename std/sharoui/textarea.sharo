@@ -16,21 +16,24 @@ KEY_LEFT := 80
 KEY_RIGHT := 79
 KEY_HOME := 74
 KEY_END := 77
+KEY_UP := 82
+KEY_DOWN := 81
 
 // Textarea state
 type TextareaState {
     text: str,
     cursorPos: int,
     scrollOffset: int,
-    focused: bool
+    focused: bool,
+    targetCol: int  // Remembered column for vertical movement
 }
 
 newTextareaState() TextareaState {
-    return TextareaState("", 0, 0, false)
+    return TextareaState("", 0, 0, false, 0)
 }
 
 newTextareaStateWith(initialText str) TextareaState {
-    return TextareaState(initialText, len(initialText), 0, false)
+    return TextareaState(initialText, len(initialText), 0, false, len(initialText))
 }
 
 // Draw a textarea - returns updated state
@@ -104,7 +107,7 @@ drawTextarea(renderer ptr, font ptr, state TextareaState,
         drawFilledRect(renderer, cursorDrawX, cursorDrawY, 2, 16, ACCENT, 255)
     }
 
-    return TextareaState(text, cursorPos, state.scrollOffset, focused)
+    return TextareaState(text, cursorPos, state.scrollOffset, focused, state.targetCol)
 }
 
 // Handle text input event - call when event type is TEXT_INPUT_EVENT (771)
@@ -118,7 +121,24 @@ textareaHandleTextInput(state TextareaState, inputText str) TextareaState {
     newText := before + inputText + after
     newCursor := state.cursorPos + len(inputText)
 
-    return TextareaState(newText, newCursor, state.scrollOffset, true)
+    // Reset targetCol to current column after typing
+    newCol := getColumnAtPos(newText, newCursor)
+    return TextareaState(newText, newCursor, state.scrollOffset, true, newCol)
+}
+
+// Helper: get column position within current line
+getColumnAtPos(text str, pos int) int {
+    // Find last newline before pos
+    lastNewline := -1
+    i := 0
+    for i < pos {
+        ch := substr(text, i, 1)
+        if ch == "\n" {
+            lastNewline = i
+        }
+        i += 1
+    }
+    return pos - lastNewline - 1
 }
 
 // Handle key down event - call when event type is KEY_DOWN_EVENT (768)
@@ -134,7 +154,10 @@ textareaHandleKeyDown(state TextareaState, scancode int) TextareaState {
         if cursorPos > 0 {
             before := substr(text, 0, cursorPos - 1)
             after := substr(text, cursorPos, textLen - cursorPos)
-            return TextareaState(before + after, cursorPos - 1, state.scrollOffset, true)
+            newText := before + after
+            newPos := cursorPos - 1
+            newCol := getColumnAtPos(newText, newPos)
+            return TextareaState(newText, newPos, state.scrollOffset, true, newCol)
         }
         return state
     }
@@ -144,7 +167,9 @@ textareaHandleKeyDown(state TextareaState, scancode int) TextareaState {
         if cursorPos < textLen {
             before := substr(text, 0, cursorPos)
             after := substr(text, cursorPos + 1, textLen - cursorPos - 1)
-            return TextareaState(before + after, cursorPos, state.scrollOffset, true)
+            newText := before + after
+            newCol := getColumnAtPos(newText, cursorPos)
+            return TextareaState(newText, cursorPos, state.scrollOffset, true, newCol)
         }
         return state
     }
@@ -153,13 +178,17 @@ textareaHandleKeyDown(state TextareaState, scancode int) TextareaState {
     if scancode == KEY_RETURN {
         before := substr(text, 0, cursorPos)
         after := substr(text, cursorPos, textLen - cursorPos)
-        return TextareaState(before + "\n" + after, cursorPos + 1, state.scrollOffset, true)
+        newText := before + "\n" + after
+        newPos := cursorPos + 1
+        return TextareaState(newText, newPos, state.scrollOffset, true, 0)  // Column 0 after newline
     }
 
     // Left arrow - move cursor left
     if scancode == KEY_LEFT {
         if cursorPos > 0 {
-            return TextareaState(text, cursorPos - 1, state.scrollOffset, true)
+            newPos := cursorPos - 1
+            newCol := getColumnAtPos(text, newPos)
+            return TextareaState(text, newPos, state.scrollOffset, true, newCol)
         }
         return state
     }
@@ -167,20 +196,130 @@ textareaHandleKeyDown(state TextareaState, scancode int) TextareaState {
     // Right arrow - move cursor right
     if scancode == KEY_RIGHT {
         if cursorPos < textLen {
-            return TextareaState(text, cursorPos + 1, state.scrollOffset, true)
+            newPos := cursorPos + 1
+            newCol := getColumnAtPos(text, newPos)
+            return TextareaState(text, newPos, state.scrollOffset, true, newCol)
         }
         return state
     }
 
     // Home - move cursor to start
     if scancode == KEY_HOME {
-        return TextareaState(text, 0, state.scrollOffset, true)
+        return TextareaState(text, 0, state.scrollOffset, true, 0)
     }
 
     // End - move cursor to end
     if scancode == KEY_END {
-        return TextareaState(text, textLen, state.scrollOffset, true)
+        newCol := getColumnAtPos(text, textLen)
+        return TextareaState(text, textLen, state.scrollOffset, true, newCol)
     }
 
+    // Up arrow - move cursor to previous line
+    if scancode == KEY_UP {
+        // Find current line info
+        lines := split(text, "\n")
+        lineCount := len(lines)
+
+        // Find which line cursor is on
+        currentLine := 0
+        charCount := 0
+
+        i := 0
+        for i < lineCount {
+            lineLen := len(lines[i])
+            lineEnd := charCount + lineLen
+            if i < lineCount - 1 {
+                lineEnd += 1  // Account for newline
+            }
+
+            if cursorPos <= lineEnd {
+                currentLine = i
+                i = lineCount  // Break
+            } else {
+                charCount = lineEnd
+                i += 1
+            }
+        }
+
+        // Can't go up from first line
+        if currentLine == 0 {
+            return state
+        }
+
+        // Use remembered targetCol for vertical movement
+        prevLine := currentLine - 1
+        prevLineLen := len(lines[prevLine])
+        col := state.targetCol
+        if col > prevLineLen {
+            col = prevLineLen
+        }
+
+        // Calculate absolute position
+        newPos := 0
+        j := 0
+        for j < prevLine {
+            newPos += len(lines[j]) + 1  // +1 for newline
+            j += 1
+        }
+        newPos += col
+
+        // Keep targetCol unchanged for vertical movement
+        return TextareaState(text, newPos, state.scrollOffset, true, state.targetCol)
+    }
+
+    // Down arrow - move cursor to next line
+    if scancode == KEY_DOWN {
+        // Find current line info
+        lines := split(text, "\n")
+        lineCount := len(lines)
+
+        // Find which line cursor is on
+        currentLine := 0
+        charCount := 0
+
+        i := 0
+        for i < lineCount {
+            lineLen := len(lines[i])
+            lineEnd := charCount + lineLen
+            if i < lineCount - 1 {
+                lineEnd += 1  // Account for newline
+            }
+
+            if cursorPos <= lineEnd {
+                currentLine = i
+                i = lineCount  // Break
+            } else {
+                charCount = lineEnd
+                i += 1
+            }
+        }
+
+        // Can't go down from last line
+        if currentLine >= lineCount - 1 {
+            return state
+        }
+
+        // Use remembered targetCol for vertical movement
+        nextLine := currentLine + 1
+        nextLineLen := len(lines[nextLine])
+        col := state.targetCol
+        if col > nextLineLen {
+            col = nextLineLen
+        }
+
+        // Calculate absolute position
+        newPos := 0
+        j := 0
+        for j < nextLine {
+            newPos += len(lines[j]) + 1  // +1 for newline
+            j += 1
+        }
+        newPos += col
+
+        // Keep targetCol unchanged for vertical movement
+        return TextareaState(text, newPos, state.scrollOffset, true, state.targetCol)
+    }
+
+    // Unknown key - preserve state including targetCol
     return state
 }
