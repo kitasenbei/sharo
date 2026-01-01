@@ -1,0 +1,130 @@
+// SharoUI Slider Component
+// Horizontal slider for value selection
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+
+// Slider state
+type SliderState {
+    value: float,
+    dragging: bool
+}
+
+// Draw a horizontal slider and return new value
+// value: current value (0.0 to 1.0)
+// Returns: new value based on mouse interaction
+drawSlider(renderer ptr, value float, x int, y int, w int, h int,
+           mx int, my int, mouseDown bool) float {
+    v := clampFloat(value, 0.0, 1.0)
+
+    trackY := y + h / 2 - 2
+    trackH := 4
+
+    // Track background
+    drawFilledRect(renderer, x, trackY, w, trackH, BG_TERTIARY, 255)
+
+    // Filled portion
+    fillWidth := trunc(v * w)
+    if fillWidth > 0 {
+        drawFilledRect(renderer, x, trackY, fillWidth, trackH, ACCENT, 255)
+    }
+
+    // Thumb
+    thumbSize := 16
+    thumbX := x + fillWidth - thumbSize / 2
+    thumbY := y + h / 2 - thumbSize / 2
+
+    hovered := isInRect(mx, my, x - thumbSize/2, y, w + thumbSize, h)
+
+    thumbColor := TEXT_SECONDARY
+    if hovered { thumbColor = TEXT_PRIMARY }
+    if mouseDown && hovered { thumbColor = ACCENT }
+
+    // Draw thumb with border
+    drawFilledRect(renderer, thumbX, thumbY, thumbSize, thumbSize, BORDER, 255)
+    drawFilledRect(renderer, thumbX + 1, thumbY + 1, thumbSize - 2, thumbSize - 2, thumbColor, 255)
+
+    // Handle dragging
+    if mouseDown && hovered {
+        newVal := (mx - x) * 1.0 / w
+        return clampFloat(newVal, 0.0, 1.0)
+    }
+
+    return v
+}
+
+// Draw a slider with integer range
+drawSliderInt(renderer ptr, value int, minVal int, maxVal int,
+              x int, y int, w int, h int,
+              mx int, my int, mouseDown bool) int {
+    // Convert to normalized value
+    range := maxVal - minVal
+    if range <= 0 { return value }
+
+    normalized := (value - minVal) * 1.0 / range
+    newNormalized := drawSlider(renderer, normalized, x, y, w, h, mx, my, mouseDown)
+
+    // Convert back to integer
+    return minVal + trunc(newNormalized * range + 0.5)
+}
+
+// Draw a slider with value label
+drawSliderWithValue(renderer ptr, font ptr, value float, x int, y int, w int, h int,
+                    mx int, my int, mouseDown bool) float {
+    newVal := drawSlider(renderer, value, x, y, w, h, mx, my, mouseDown)
+
+    // Draw value as percentage
+    pct := trunc(newVal * 100.0)
+    label := "{pct}%"
+    drawColoredText(renderer, font, label, x + w + SPACING_SM, y + (h - 14) / 2, TEXT_SECONDARY)
+
+    return newVal
+}
+
+// Draw a labeled slider
+drawLabeledSlider(renderer ptr, font ptr, label str, value float,
+                  x int, y int, labelW int, sliderW int, h int,
+                  mx int, my int, mouseDown bool) float {
+    drawColoredText(renderer, font, label, x, y + (h - 14) / 2, TEXT_PRIMARY)
+    return drawSlider(renderer, value, x + labelW, y, sliderW, h, mx, my, mouseDown)
+}
+
+// Draw a vertical slider
+drawSliderV(renderer ptr, value float, x int, y int, w int, h int,
+            mx int, my int, mouseDown bool) float {
+    v := clampFloat(value, 0.0, 1.0)
+
+    trackX := x + w / 2 - 2
+    trackW := 4
+
+    // Track background
+    drawFilledRect(renderer, trackX, y, trackW, h, BG_TERTIARY, 255)
+
+    // Filled portion (from bottom)
+    fillHeight := trunc(v * h)
+    if fillHeight > 0 {
+        drawFilledRect(renderer, trackX, y + h - fillHeight, trackW, fillHeight, ACCENT, 255)
+    }
+
+    // Thumb
+    thumbSize := 16
+    thumbX := x + w / 2 - thumbSize / 2
+    thumbY := y + h - fillHeight - thumbSize / 2
+
+    hovered := isInRect(mx, my, x, y - thumbSize/2, w, h + thumbSize)
+
+    thumbColor := TEXT_SECONDARY
+    if hovered { thumbColor = TEXT_PRIMARY }
+    if mouseDown && hovered { thumbColor = ACCENT }
+
+    drawFilledRect(renderer, thumbX, thumbY, thumbSize, thumbSize, BORDER, 255)
+    drawFilledRect(renderer, thumbX + 1, thumbY + 1, thumbSize - 2, thumbSize - 2, thumbColor, 255)
+
+    // Handle dragging
+    if mouseDown && hovered {
+        newVal := 1.0 - ((my - y) * 1.0 / h)
+        return clampFloat(newVal, 0.0, 1.0)
+    }
+
+    return v
+}

@@ -1,0 +1,58 @@
+// SharoUI Theme - Mint Dark
+// Colors, spacing, and typography constants
+
+// === Color Palette - Mint Dark ===
+
+// Background colors
+BG_PRIMARY := 0x1a1a1a      // Darkest background
+BG_SECONDARY := 0x242424    // Card/panel background
+BG_TERTIARY := 0x2e2e2e     // Elevated elements
+BG_HOVER := 0x383838        // Hover state
+
+// Accent colors (Mint green)
+ACCENT := 0x8ab467          // Primary accent
+ACCENT_HOVER := 0x9cc87a    // Hover state
+ACCENT_ACTIVE := 0x7aa35a   // Active/pressed state
+ACCENT_MUTED := 0x4a6f31    // Subtle accent
+
+// Text colors
+TEXT_PRIMARY := 0xffffff    // Main text
+TEXT_SECONDARY := 0xb8b8b8  // Secondary text
+TEXT_MUTED := 0x707070      // Muted/disabled text
+TEXT_INVERSE := 0x1a1a1a    // Text on accent
+
+// Border colors
+BORDER := 0x404040          // Default border
+BORDER_FOCUS := 0x8ab467    // Focused element border
+
+// Semantic colors
+SUCCESS := 0x8ab467         // Success (mint green)
+WARNING := 0xe8c547         // Warning (yellow)
+ERROR := 0xd16969           // Error (red)
+INFO := 0x6bc3d1            // Info (cyan)
+
+// === Spacing Scale ===
+SPACING_XS := 4
+SPACING_SM := 8
+SPACING_MD := 16
+SPACING_LG := 24
+SPACING_XL := 32
+
+// === Component Sizes ===
+BUTTON_HEIGHT := 32
+BUTTON_HEIGHT_SM := 24
+BUTTON_HEIGHT_LG := 40
+
+INPUT_HEIGHT := 32
+CHECKBOX_SIZE := 18
+RADIO_SIZE := 18
+SWITCH_WIDTH := 44
+SWITCH_HEIGHT := 22
+
+SCROLLBAR_WIDTH := 10
+TAB_HEIGHT := 36
+
+// === Border Radius (simulated with nested rects) ===
+RADIUS_SM := 2
+RADIUS_MD := 4
+RADIUS_LG := 8

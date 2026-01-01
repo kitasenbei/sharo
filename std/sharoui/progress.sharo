@@ -1,0 +1,151 @@
+// SharoUI Progress Component
+// Progress bar, circular progress, spinner
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+
+// Draw a horizontal progress bar
+// value: 0.0 to 1.0
+drawProgress(renderer ptr, value float, x int, y int, w int, h int) {
+    // Clamp value
+    v := clampFloat(value, 0.0, 1.0)
+
+    // Track background
+    drawFilledRect(renderer, x, y, w, h, BG_TERTIARY, 255)
+
+    // Progress fill
+    fillWidth := trunc(v * (w - 2))
+    if fillWidth > 0 {
+        drawFilledRect(renderer, x + 1, y + 1, fillWidth, h - 2, ACCENT, 255)
+    }
+}
+
+// Draw a progress bar with border
+drawProgressBordered(renderer ptr, value float, x int, y int, w int, h int) {
+    drawFilledRect(renderer, x, y, w, h, BORDER, 255)
+    drawFilledRect(renderer, x + 1, y + 1, w - 2, h - 2, BG_TERTIARY, 255)
+
+    v := clampFloat(value, 0.0, 1.0)
+    fillWidth := trunc(v * (w - 4))
+    if fillWidth > 0 {
+        drawFilledRect(renderer, x + 2, y + 2, fillWidth, h - 4, ACCENT, 255)
+    }
+}
+
+// Draw a progress bar with percentage label
+drawProgressWithLabel(renderer ptr, font ptr, value float, x int, y int, w int, h int) {
+    drawProgressBordered(renderer, value, x, y, w, h)
+
+    // Calculate percentage
+    pct := trunc(value * 100.0)
+    if pct > 100 { pct = 100 }
+    if pct < 0 { pct = 0 }
+
+    // Draw percentage text
+    label := "{pct}%"
+    drawColoredText(renderer, font, label, x + w + SPACING_SM, y + (h - 14) / 2, TEXT_SECONDARY)
+}
+
+// Draw a colored progress bar (custom color)
+drawProgressColored(renderer ptr, value float, x int, y int, w int, h int, color int) {
+    drawFilledRect(renderer, x, y, w, h, BG_TERTIARY, 255)
+
+    v := clampFloat(value, 0.0, 1.0)
+    fillWidth := trunc(v * (w - 2))
+    if fillWidth > 0 {
+        drawFilledRect(renderer, x + 1, y + 1, fillWidth, h - 2, color, 255)
+    }
+}
+
+// Draw a simple spinner (animated loading indicator)
+// frame: animation frame counter (increment each frame)
+drawSpinner(renderer ptr, x int, y int, size int, frame int) {
+    // 8 segments, one highlighted based on frame
+    segments := 8
+    segment := (frame / 4) % segments
+
+    centerX := x + size / 2
+    centerY := y + size / 2
+
+    // Draw segments as small rectangles in a circle pattern
+    i := 0
+    for i < segments {
+        // Calculate segment position (approximation)
+        alpha := 64
+        if i == segment { alpha = 255 }
+        if i == (segment + 1) % segments { alpha = 192 }
+        if i == (segment + 2) % segments { alpha = 128 }
+
+        // Simple approximation: 8 positions around center
+        segW := 3
+        segH := 3
+
+        // Position based on index
+        segX := centerX
+        segY := centerY
+        if i == 0 {
+            segX = centerX
+            segY = centerY - size/2 + 2
+        }
+        if i == 1 {
+            segX = centerX + size/3
+            segY = centerY - size/3
+        }
+        if i == 2 {
+            segX = centerX + size/2 - 4
+            segY = centerY
+        }
+        if i == 3 {
+            segX = centerX + size/3
+            segY = centerY + size/3
+        }
+        if i == 4 {
+            segX = centerX
+            segY = centerY + size/2 - 4
+        }
+        if i == 5 {
+            segX = centerX - size/3 - 2
+            segY = centerY + size/3
+        }
+        if i == 6 {
+            segX = centerX - size/2 + 2
+            segY = centerY
+        }
+        if i == 7 {
+            segX = centerX - size/3 - 2
+            segY = centerY - size/3
+        }
+
+        setHexColor(renderer, ACCENT, alpha)
+        fillRect(renderer, segX, segY, segW, segH)
+
+        i += 1
+    }
+}
+
+// Draw an indeterminate progress bar (animated)
+// frame: animation frame counter
+drawProgressIndeterminate(renderer ptr, x int, y int, w int, h int, frame int) {
+    // Track background
+    drawFilledRect(renderer, x, y, w, h, BG_TERTIARY, 255)
+
+    // Moving bar
+    barWidth := w / 4
+    pos := (frame * 3) % (w + barWidth)
+    barX := x + pos - barWidth
+
+    // Clip to bounds
+    drawX := barX
+    drawW := barWidth
+    if drawX < x {
+        drawW = drawW - (x - drawX)
+        drawX = x
+    }
+    if drawX + drawW > x + w {
+        drawW = x + w - drawX
+    }
+
+    if drawW > 0 {
+        drawFilledRect(renderer, drawX + 1, y + 1, drawW - 2, h - 2, ACCENT, 255)
+    }
+}

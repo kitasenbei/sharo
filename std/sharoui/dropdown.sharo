@@ -1,0 +1,108 @@
+// SharoUI Dropdown Component
+// Select/dropdown menu
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+
+// Dropdown state
+type DropdownState {
+    selectedIndex: int,
+    open: bool
+}
+
+// Create new dropdown state
+newDropdownState() DropdownState {
+    return DropdownState(0, false)
+}
+
+newDropdownStateWith(index int) DropdownState {
+    return DropdownState(index, false)
+}
+
+// Draw a dropdown and return updated state
+// options: array of strings, optionCount: number of options
+drawDropdown(renderer ptr, font ptr, options ptr, optionCount int, state DropdownState,
+             x int, y int, w int, h int,
+             mx int, my int, clicked bool) DropdownState {
+
+    selectedIndex := state.selectedIndex
+    open := state.open
+
+    // Main button area
+    hovered := isInRect(mx, my, x, y, w, h)
+
+    // Border and background
+    borderColor := BORDER
+    if hovered || open { borderColor = ACCENT }
+
+    drawFilledRect(renderer, x, y, w, h, borderColor, 255)
+    drawFilledRect(renderer, x + 1, y + 1, w - 2, h - 2, BG_SECONDARY, 255)
+
+    // Selected text
+    if selectedIndex >= 0 && selectedIndex < optionCount {
+        drawColoredText(renderer, font, options[selectedIndex], x + SPACING_SM, y + (h - 14) / 2, TEXT_PRIMARY)
+    }
+
+    // Chevron down icon
+    chevronX := x + w - 20
+    chevronY := y + h / 2 - 4
+    setHexColor(renderer, TEXT_MUTED, 255)
+    fillRect(renderer, chevronX, chevronY, 8, 2)
+    fillRect(renderer, chevronX + 1, chevronY + 2, 6, 2)
+    fillRect(renderer, chevronX + 2, chevronY + 4, 4, 2)
+    fillRect(renderer, chevronX + 3, chevronY + 6, 2, 2)
+
+    // Toggle open on click
+    if hovered && clicked {
+        open = !open
+    }
+
+    // Draw dropdown menu when open
+    if open {
+        menuY := y + h
+        menuH := optionCount * 28
+
+        // Menu background with shadow
+        drawFilledRect(renderer, x + 2, menuY + 2, w, menuH, 0x000000, 80)
+        drawFilledRect(renderer, x, menuY, w, menuH, BORDER, 255)
+        drawFilledRect(renderer, x + 1, menuY + 1, w - 2, menuH - 2, BG_SECONDARY, 255)
+
+        // Draw options
+        i := 0
+        for i < optionCount {
+            optY := menuY + i * 28
+            optHovered := isInRect(mx, my, x, optY, w, 28)
+
+            if optHovered {
+                drawFilledRect(renderer, x + 1, optY, w - 2, 28, BG_HOVER, 255)
+            }
+
+            textColor := TEXT_PRIMARY
+            if i == selectedIndex { textColor = ACCENT }
+
+            drawColoredText(renderer, font, options[i], x + SPACING_SM, optY + 6, textColor)
+
+            // Select on click
+            if optHovered && clicked {
+                selectedIndex = i
+                open = false
+            }
+
+            i += 1
+        }
+
+        // Close if clicked outside
+        if clicked && !isInRect(mx, my, x, y, w, h + menuH) {
+            open = false
+        }
+    }
+
+    return DropdownState(selectedIndex, open)
+}
+
+// Compact dropdown (smaller height)
+drawDropdownSm(renderer ptr, font ptr, options ptr, optionCount int, state DropdownState,
+               x int, y int, w int,
+               mx int, my int, clicked bool) DropdownState {
+    return drawDropdown(renderer, font, options, optionCount, state, x, y, w, 28, mx, my, clicked)
+}

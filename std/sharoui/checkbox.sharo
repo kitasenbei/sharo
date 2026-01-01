@@ -1,0 +1,126 @@
+// SharoUI Checkbox Component
+// Checkbox, Radio button, and Switch controls
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+
+// Draw a checkbox and return new checked state
+drawCheckbox(renderer ptr, font ptr, label str, checked bool,
+             x int, y int, mx int, my int, clicked bool) bool {
+    boxX := x
+    boxY := y
+    boxSize := CHECKBOX_SIZE
+
+    hovered := isInRect(mx, my, x, y, boxSize + len(label) * 8 + SPACING_SM, boxSize)
+
+    // Draw box border
+    borderColor := BORDER
+    if hovered { borderColor = ACCENT }
+    drawFilledRect(renderer, boxX, boxY, boxSize, boxSize, borderColor, 255)
+
+    // Draw box background
+    bgColor := BG_SECONDARY
+    if checked { bgColor = ACCENT }
+    drawFilledRect(renderer, boxX + 1, boxY + 1, boxSize - 2, boxSize - 2, bgColor, 255)
+
+    // Draw checkmark if checked
+    if checked {
+        // Simple checkmark using small rectangles
+        setHexColor(renderer, TEXT_INVERSE, 255)
+        fillRect(renderer, boxX + 4, boxY + 9, 3, 2)
+        fillRect(renderer, boxX + 6, boxY + 11, 2, 2)
+        fillRect(renderer, boxX + 7, boxY + 7, 2, 5)
+        fillRect(renderer, boxX + 9, boxY + 5, 2, 4)
+        fillRect(renderer, boxX + 11, boxY + 3, 2, 4)
+    }
+
+    // Draw label
+    drawColoredText(renderer, font, label, boxX + boxSize + SPACING_SM, boxY + 2, TEXT_PRIMARY)
+
+    // Toggle on click
+    if hovered && clicked {
+        return !checked
+    }
+    return checked
+}
+
+// Draw a radio button and return if selected
+drawRadio(renderer ptr, font ptr, label str, selected bool,
+          x int, y int, mx int, my int, clicked bool) bool {
+    circleX := x
+    circleY := y
+    size := RADIO_SIZE
+
+    hovered := isInRect(mx, my, x, y, size + len(label) * 8 + SPACING_SM, size)
+
+    // Outer circle (border)
+    borderColor := BORDER
+    if hovered { borderColor = ACCENT }
+
+    // Draw circle approximation using filled rect with "rounded" effect
+    drawFilledRect(renderer, circleX + 2, circleY, size - 4, size, borderColor, 255)
+    drawFilledRect(renderer, circleX, circleY + 2, size, size - 4, borderColor, 255)
+    drawFilledRect(renderer, circleX + 1, circleY + 1, size - 2, size - 2, borderColor, 255)
+
+    // Inner circle (background)
+    bgColor := BG_SECONDARY
+    drawFilledRect(renderer, circleX + 3, circleY + 1, size - 6, size - 2, bgColor, 255)
+    drawFilledRect(renderer, circleX + 1, circleY + 3, size - 2, size - 6, bgColor, 255)
+    drawFilledRect(renderer, circleX + 2, circleY + 2, size - 4, size - 4, bgColor, 255)
+
+    // Selected dot
+    if selected {
+        dotSize := 8
+        dotX := circleX + (size - dotSize) / 2
+        dotY := circleY + (size - dotSize) / 2
+        drawFilledRect(renderer, dotX + 1, dotY, dotSize - 2, dotSize, ACCENT, 255)
+        drawFilledRect(renderer, dotX, dotY + 1, dotSize, dotSize - 2, ACCENT, 255)
+    }
+
+    // Draw label
+    drawColoredText(renderer, font, label, circleX + size + SPACING_SM, circleY + 2, TEXT_PRIMARY)
+
+    return hovered && clicked
+}
+
+// Draw a switch/toggle and return new state
+drawSwitch(renderer ptr, on bool, x int, y int, mx int, my int, clicked bool) bool {
+    w := SWITCH_WIDTH
+    h := SWITCH_HEIGHT
+
+    hovered := isInRect(mx, my, x, y, w, h)
+
+    // Track background
+    trackColor := BG_TERTIARY
+    if on { trackColor = ACCENT_MUTED }
+
+    drawFilledRect(renderer, x, y, w, h, BORDER, 255)
+    drawFilledRect(renderer, x + 1, y + 1, w - 2, h - 2, trackColor, 255)
+
+    // Knob
+    knobSize := h - 4
+    knobX := x + 2
+    if on { knobX = x + w - knobSize - 2 }
+    knobY := y + 2
+
+    knobColor := TEXT_SECONDARY
+    if on { knobColor = ACCENT }
+    if hovered { knobColor = TEXT_PRIMARY }
+    if on && hovered { knobColor = ACCENT_HOVER }
+
+    drawFilledRect(renderer, knobX, knobY, knobSize, knobSize, knobColor, 255)
+
+    // Toggle on click
+    if hovered && clicked {
+        return !on
+    }
+    return on
+}
+
+// Draw a labeled switch
+drawLabeledSwitch(renderer ptr, font ptr, label str, on bool,
+                  x int, y int, mx int, my int, clicked bool) bool {
+    drawColoredText(renderer, font, label, x, y + 3, TEXT_PRIMARY)
+    labelWidth := len(label) * 8 + SPACING_MD
+    return drawSwitch(renderer, on, x + labelWidth, y, mx, my, clicked)
+}

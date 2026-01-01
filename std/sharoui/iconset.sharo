@@ -1,0 +1,157 @@
+// SharoUI IconSet Component
+// Loads and draws icons from PNG files
+// Place icons in assets/icons/ as 24x24 PNGs
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+
+// Icon set - holds loaded icon textures
+type IconSet {
+    // Navigation
+    chevronLeft: ptr,
+    chevronRight: ptr,
+    chevronUp: ptr,
+    chevronDown: ptr,
+    arrowLeft: ptr,
+    arrowRight: ptr,
+    menu: ptr,
+    x: ptr,
+    // Actions
+    check: ptr,
+    plus: ptr,
+    minus: ptr,
+    edit: ptr,
+    trash: ptr,
+    copy: ptr,
+    search: ptr,
+    settings: ptr,
+    refresh: ptr,
+    // Files
+    file: ptr,
+    folder: ptr,
+    folderOpen: ptr,
+    download: ptr,
+    upload: ptr,
+    save: ptr,
+    // UI
+    eye: ptr,
+    eyeOff: ptr,
+    info: ptr,
+    alertCircle: ptr,
+    checkCircle: ptr,
+    xCircle: ptr,
+    user: ptr,
+    home: ptr,
+    star: ptr,
+    // Media
+    play: ptr,
+    pause: ptr,
+    // Misc
+    externalLink: ptr,
+    link: ptr,
+    calendar: ptr,
+    clock: ptr
+}
+
+// Load all icons from assets/icons/
+// Call once at startup after createRenderer
+loadIconSet(renderer ptr, basePath str) IconSet {
+    return IconSet(
+        loadTexture(renderer, "{basePath}/chevron-left.png"),
+        loadTexture(renderer, "{basePath}/chevron-right.png"),
+        loadTexture(renderer, "{basePath}/chevron-up.png"),
+        loadTexture(renderer, "{basePath}/chevron-down.png"),
+        loadTexture(renderer, "{basePath}/arrow-left.png"),
+        loadTexture(renderer, "{basePath}/arrow-right.png"),
+        loadTexture(renderer, "{basePath}/menu.png"),
+        loadTexture(renderer, "{basePath}/x.png"),
+        loadTexture(renderer, "{basePath}/check.png"),
+        loadTexture(renderer, "{basePath}/plus.png"),
+        loadTexture(renderer, "{basePath}/minus.png"),
+        loadTexture(renderer, "{basePath}/edit.png"),
+        loadTexture(renderer, "{basePath}/trash.png"),
+        loadTexture(renderer, "{basePath}/copy.png"),
+        loadTexture(renderer, "{basePath}/search.png"),
+        loadTexture(renderer, "{basePath}/settings.png"),
+        loadTexture(renderer, "{basePath}/refresh.png"),
+        loadTexture(renderer, "{basePath}/file.png"),
+        loadTexture(renderer, "{basePath}/folder.png"),
+        loadTexture(renderer, "{basePath}/folder-open.png"),
+        loadTexture(renderer, "{basePath}/download.png"),
+        loadTexture(renderer, "{basePath}/upload.png"),
+        loadTexture(renderer, "{basePath}/save.png"),
+        loadTexture(renderer, "{basePath}/eye.png"),
+        loadTexture(renderer, "{basePath}/eye-off.png"),
+        loadTexture(renderer, "{basePath}/info.png"),
+        loadTexture(renderer, "{basePath}/alert-circle.png"),
+        loadTexture(renderer, "{basePath}/check-circle.png"),
+        loadTexture(renderer, "{basePath}/x-circle.png"),
+        loadTexture(renderer, "{basePath}/user.png"),
+        loadTexture(renderer, "{basePath}/home.png"),
+        loadTexture(renderer, "{basePath}/star.png"),
+        loadTexture(renderer, "{basePath}/play.png"),
+        loadTexture(renderer, "{basePath}/pause.png"),
+        loadTexture(renderer, "{basePath}/external-link.png"),
+        loadTexture(renderer, "{basePath}/link.png"),
+        loadTexture(renderer, "{basePath}/calendar.png"),
+        loadTexture(renderer, "{basePath}/clock.png")
+    )
+}
+
+// Destroy all icon textures
+destroyIconSet(icons IconSet) {
+    if icons.chevronLeft != nil { destroyTexture(icons.chevronLeft) }
+    if icons.chevronRight != nil { destroyTexture(icons.chevronRight) }
+    if icons.chevronUp != nil { destroyTexture(icons.chevronUp) }
+    if icons.chevronDown != nil { destroyTexture(icons.chevronDown) }
+    if icons.arrowLeft != nil { destroyTexture(icons.arrowLeft) }
+    if icons.arrowRight != nil { destroyTexture(icons.arrowRight) }
+    if icons.menu != nil { destroyTexture(icons.menu) }
+    if icons.x != nil { destroyTexture(icons.x) }
+    if icons.check != nil { destroyTexture(icons.check) }
+    if icons.plus != nil { destroyTexture(icons.plus) }
+    if icons.minus != nil { destroyTexture(icons.minus) }
+    if icons.edit != nil { destroyTexture(icons.edit) }
+    if icons.trash != nil { destroyTexture(icons.trash) }
+    if icons.copy != nil { destroyTexture(icons.copy) }
+    if icons.search != nil { destroyTexture(icons.search) }
+    if icons.settings != nil { destroyTexture(icons.settings) }
+    if icons.refresh != nil { destroyTexture(icons.refresh) }
+    if icons.file != nil { destroyTexture(icons.file) }
+    if icons.folder != nil { destroyTexture(icons.folder) }
+    if icons.folderOpen != nil { destroyTexture(icons.folderOpen) }
+    if icons.download != nil { destroyTexture(icons.download) }
+    if icons.upload != nil { destroyTexture(icons.upload) }
+    if icons.save != nil { destroyTexture(icons.save) }
+    if icons.eye != nil { destroyTexture(icons.eye) }
+    if icons.eyeOff != nil { destroyTexture(icons.eyeOff) }
+    if icons.info != nil { destroyTexture(icons.info) }
+    if icons.alertCircle != nil { destroyTexture(icons.alertCircle) }
+    if icons.checkCircle != nil { destroyTexture(icons.checkCircle) }
+    if icons.xCircle != nil { destroyTexture(icons.xCircle) }
+    if icons.user != nil { destroyTexture(icons.user) }
+    if icons.home != nil { destroyTexture(icons.home) }
+    if icons.star != nil { destroyTexture(icons.star) }
+    if icons.play != nil { destroyTexture(icons.play) }
+    if icons.pause != nil { destroyTexture(icons.pause) }
+    if icons.externalLink != nil { destroyTexture(icons.externalLink) }
+    if icons.link != nil { destroyTexture(icons.link) }
+    if icons.calendar != nil { destroyTexture(icons.calendar) }
+    if icons.clock != nil { destroyTexture(icons.clock) }
+}
+
+// Draw an icon at position with size
+drawIcon(renderer ptr, icon ptr, x int, y int, size int) {
+    if icon != nil {
+        drawTexture(renderer, icon, x, y, size, size)
+    }
+}
+
+// Draw icon centered in a box
+drawIconCentered(renderer ptr, icon ptr, x int, y int, boxW int, boxH int, iconSize int) {
+    if icon != nil {
+        ix := x + (boxW - iconSize) / 2
+        iy := y + (boxH - iconSize) / 2
+        drawTexture(renderer, icon, ix, iy, iconSize, iconSize)
+    }
+}

@@ -1,0 +1,154 @@
+// SharoUI List Component
+// Scrollable list with selection
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+
+// List state
+type ListState {
+    scrollOffset: int,
+    selectedIndex: int
+}
+
+// Create a new list state
+newListState() ListState {
+    return ListState(0, -1)
+}
+
+// Draw a scrollable list
+// items: array of strings, itemCount: number of items
+// Returns updated ListState
+drawList(renderer ptr, font ptr, items ptr, itemCount int, state ListState,
+         x int, y int, w int, h int, itemHeight int,
+         mx int, my int, clicked bool, wheelY int) ListState {
+
+    scrollOffset := state.scrollOffset
+    selectedIndex := state.selectedIndex
+
+    contentHeight := itemCount * itemHeight
+    visibleItems := h / itemHeight
+
+    // Handle scroll wheel
+    if isInRect(mx, my, x, y, w, h) {
+        scrollOffset = scrollOffset - wheelY * itemHeight
+    }
+
+    // Clamp scroll
+    maxScroll := contentHeight - h
+    if maxScroll < 0 { maxScroll = 0 }
+    scrollOffset = clampInt(scrollOffset, 0, maxScroll)
+
+    // Background
+    drawFilledRect(renderer, x, y, w, h, BG_SECONDARY, 255)
+
+    // Draw visible items
+    startIndex := scrollOffset / itemHeight
+    endIndex := startIndex + visibleItems + 1
+    if endIndex > itemCount { endIndex = itemCount }
+
+    i := startIndex
+    for i < endIndex {
+        itemY := y + i * itemHeight - scrollOffset
+
+        // Skip if outside visible area
+        if itemY + itemHeight > y {
+            if itemY < y + h {
+                hovered := isInRect(mx, my, x, itemY, w - SCROLLBAR_WIDTH, itemHeight)
+                selected := i == selectedIndex
+
+                // Item background
+                if selected {
+                    drawFilledRect(renderer, x, itemY, w - SCROLLBAR_WIDTH, itemHeight, ACCENT_MUTED, 255)
+                } else if hovered {
+                    drawFilledRect(renderer, x, itemY, w - SCROLLBAR_WIDTH, itemHeight, BG_HOVER, 255)
+                }
+
+                // Item text
+                textColor := TEXT_PRIMARY
+                if selected { textColor = ACCENT }
+                drawColoredText(renderer, font, items[i], x + SPACING_SM, itemY + (itemHeight - 14) / 2, textColor)
+
+                // Handle click
+                if hovered && clicked {
+                    selectedIndex = i
+                }
+            }
+        }
+
+        i += 1
+    }
+
+    // Draw scrollbar if needed
+    if contentHeight > h {
+        scrollbarX := x + w - SCROLLBAR_WIDTH
+        drawFilledRect(renderer, scrollbarX, y, SCROLLBAR_WIDTH, h, BG_TERTIARY, 255)
+
+        // Thumb
+        thumbHeight := (h * h) / contentHeight
+        if thumbHeight < 20 { thumbHeight = 20 }
+
+        scrollRatio := scrollOffset * 1.0 / maxScroll
+        thumbY := y + trunc(scrollRatio * (h - thumbHeight))
+
+        thumbColor := TEXT_MUTED
+        if isInRect(mx, my, scrollbarX, y, SCROLLBAR_WIDTH, h) {
+            thumbColor = TEXT_SECONDARY
+        }
+
+        drawFilledRect(renderer, scrollbarX + 2, thumbY, SCROLLBAR_WIDTH - 4, thumbHeight, thumbColor, 255)
+    }
+
+    return ListState(scrollOffset, selectedIndex)
+}
+
+// Draw a simple list without scrollbar
+// items: array of strings, itemCount: number of items
+drawSimpleList(renderer ptr, font ptr, items ptr, itemCount int, selectedIndex int,
+               x int, y int, w int, itemHeight int,
+               mx int, my int, clicked bool) int {
+
+    newSelected := selectedIndex
+
+    i := 0
+    for i < itemCount {
+        itemY := y + i * itemHeight
+        hovered := isInRect(mx, my, x, itemY, w, itemHeight)
+        selected := i == selectedIndex
+
+        if selected {
+            drawFilledRect(renderer, x, itemY, w, itemHeight, ACCENT_MUTED, 255)
+        } else if hovered {
+            drawFilledRect(renderer, x, itemY, w, itemHeight, BG_HOVER, 255)
+        }
+
+        textColor := TEXT_PRIMARY
+        if selected { textColor = ACCENT }
+        drawColoredText(renderer, font, items[i], x + SPACING_SM, itemY + (itemHeight - 14) / 2, textColor)
+
+        if hovered && clicked {
+            newSelected = i
+        }
+
+        i += 1
+    }
+
+    return newSelected
+}
+
+// Draw a selectable list item
+drawListItem(renderer ptr, font ptr, text str, x int, y int, w int, h int,
+             selected bool, mx int, my int, clicked bool) bool {
+    hovered := isInRect(mx, my, x, y, w, h)
+
+    if selected {
+        drawFilledRect(renderer, x, y, w, h, ACCENT_MUTED, 255)
+    } else if hovered {
+        drawFilledRect(renderer, x, y, w, h, BG_HOVER, 255)
+    }
+
+    textColor := TEXT_PRIMARY
+    if selected { textColor = ACCENT }
+    drawColoredText(renderer, font, text, x + SPACING_SM, y + (h - 14) / 2, textColor)
+
+    return hovered && clicked
+}

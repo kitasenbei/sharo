@@ -1,0 +1,221 @@
+// SharoUI Icons Component
+// Simple shape-based icons drawn with rectangles
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+
+// === Basic Shape Icons ===
+
+// Draw a close/X icon
+drawIconClose(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+    thickness := 2
+
+    // Diagonal lines approximated with small rects
+    i := 0
+    for i < size {
+        // Top-left to bottom-right
+        fillRect(renderer, x + i, y + i, thickness, thickness)
+        // Top-right to bottom-left
+        fillRect(renderer, x + size - i - thickness, y + i, thickness, thickness)
+        i += 1
+    }
+}
+
+// Draw a checkmark icon
+drawIconCheck(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+
+    // Simple checkmark shape
+    fillRect(renderer, x + 2, y + size/2 + 2, 3, 2)
+    fillRect(renderer, x + 4, y + size/2 + 4, 2, 2)
+    fillRect(renderer, x + 5, y + size/2, 2, 5)
+    fillRect(renderer, x + 6, y + size/2 - 2, 2, 4)
+    fillRect(renderer, x + 7, y + size/2 - 4, 2, 4)
+    fillRect(renderer, x + 8, y + size/2 - 6, 2, 4)
+}
+
+// Draw a plus icon
+drawIconPlus(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+    thickness := 2
+    center := size / 2
+
+    // Horizontal bar
+    fillRect(renderer, x + 2, y + center - thickness/2, size - 4, thickness)
+    // Vertical bar
+    fillRect(renderer, x + center - thickness/2, y + 2, thickness, size - 4)
+}
+
+// Draw a minus icon
+drawIconMinus(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+    thickness := 2
+    center := size / 2
+
+    // Horizontal bar only
+    fillRect(renderer, x + 2, y + center - thickness/2, size - 4, thickness)
+}
+
+// Draw a chevron right icon (>)
+drawIconChevronRight(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+
+    i := 0
+    half := size / 2
+    for i < half {
+        fillRect(renderer, x + i + 2, y + i, 2, 2)
+        fillRect(renderer, x + i + 2, y + size - i - 2, 2, 2)
+        i += 1
+    }
+}
+
+// Draw a chevron left icon (<)
+drawIconChevronLeft(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+
+    i := 0
+    half := size / 2
+    for i < half {
+        fillRect(renderer, x + half - i, y + i, 2, 2)
+        fillRect(renderer, x + half - i, y + size - i - 2, 2, 2)
+        i += 1
+    }
+}
+
+// Draw a chevron down icon
+drawIconChevronDown(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+
+    i := 0
+    half := size / 2
+    for i < half {
+        fillRect(renderer, x + i, y + i + 2, 2, 2)
+        fillRect(renderer, x + size - i - 2, y + i + 2, 2, 2)
+        i += 1
+    }
+}
+
+// Draw a chevron up icon
+drawIconChevronUp(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+
+    i := 0
+    half := size / 2
+    for i < half {
+        fillRect(renderer, x + i, y + half - i, 2, 2)
+        fillRect(renderer, x + size - i - 2, y + half - i, 2, 2)
+        i += 1
+    }
+}
+
+// Draw a menu/hamburger icon
+drawIconMenu(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+    barH := 2
+    gap := (size - barH * 3) / 4
+
+    fillRect(renderer, x, y + gap, size, barH)
+    fillRect(renderer, x, y + gap * 2 + barH, size, barH)
+    fillRect(renderer, x, y + gap * 3 + barH * 2, size, barH)
+}
+
+// Draw a folder icon
+drawIconFolder(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+
+    // Folder tab
+    fillRect(renderer, x, y + 2, size / 3, 4)
+
+    // Folder body
+    fillRect(renderer, x, y + 4, size, size - 6)
+
+    // Inner (darker)
+    setHexColor(renderer, BG_TERTIARY, 255)
+    fillRect(renderer, x + 2, y + 8, size - 4, size - 12)
+}
+
+// Draw a file icon
+drawIconFile(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+
+    // File body
+    fillRect(renderer, x + 2, y, size - 4, size)
+
+    // Corner fold
+    setHexColor(renderer, BG_TERTIARY, 255)
+    fillRect(renderer, x + size - 6, y, 4, 4)
+}
+
+// Draw a search/magnifier icon
+drawIconSearch(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+
+    // Circle (approximated)
+    circleSize := size * 2 / 3
+    fillRect(renderer, x + 2, y, circleSize - 4, 2)
+    fillRect(renderer, x + 2, y + circleSize - 2, circleSize - 4, 2)
+    fillRect(renderer, x, y + 2, 2, circleSize - 4)
+    fillRect(renderer, x + circleSize - 2, y + 2, 2, circleSize - 4)
+
+    // Handle
+    fillRect(renderer, x + circleSize - 2, y + circleSize - 2, size - circleSize + 2, 3)
+}
+
+// Draw a settings/gear icon (simplified)
+drawIconSettings(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+    center := size / 2
+
+    // Center circle
+    circleR := size / 4
+    fillRect(renderer, x + center - circleR, y + center - circleR, circleR * 2, circleR * 2)
+
+    // Cogs (simplified as plus shape)
+    thickness := 3
+    fillRect(renderer, x + center - 1, y, thickness, size)
+    fillRect(renderer, x, y + center - 1, size, thickness)
+}
+
+// Draw a home icon
+drawIconHome(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+
+    // Roof (triangle approximation)
+    i := 0
+    for i < size / 2 {
+        fillRect(renderer, x + size/2 - i - 1, y + i, (i + 1) * 2, 2)
+        i += 1
+    }
+
+    // House body
+    fillRect(renderer, x + 2, y + size/2, size - 4, size/2)
+
+    // Door (darker)
+    setHexColor(renderer, BG_PRIMARY, 255)
+    fillRect(renderer, x + size/2 - 2, y + size/2 + 4, 4, size/2 - 4)
+}
+
+// Draw an arrow right icon
+drawIconArrowRight(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+    center := size / 2
+
+    // Shaft
+    fillRect(renderer, x, y + center - 1, size - 4, 2)
+
+    // Head
+    drawIconChevronRight(renderer, x + size/2, y, size/2, color)
+}
+
+// Draw an arrow left icon
+drawIconArrowLeft(renderer ptr, x int, y int, size int, color int) {
+    setHexColor(renderer, color, 255)
+    center := size / 2
+
+    // Shaft
+    fillRect(renderer, x + 4, y + center - 1, size - 4, 2)
+
+    // Head
+    drawIconChevronLeft(renderer, x, y, size/2, color)
+}

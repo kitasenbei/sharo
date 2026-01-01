@@ -1,0 +1,88 @@
+// SharoUI Button Component
+// Variants: default, primary, ghost, destructive
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+
+// Button variants (use integers for speed)
+BTN_DEFAULT := 0
+BTN_PRIMARY := 1
+BTN_GHOST := 2
+BTN_DESTRUCTIVE := 3
+
+// Draw a button and return true if clicked
+// variant: BTN_DEFAULT, BTN_PRIMARY, BTN_GHOST, BTN_DESTRUCTIVE
+drawButton(renderer ptr, font ptr, label str, x int, y int, w int, h int,
+           mx int, my int, clicked bool, variant int) bool {
+    hovered := isInRect(mx, my, x, y, w, h)
+    pressed := hovered && clicked
+
+    // Get colors based on variant (integer comparisons are fast)
+    bgColor := BG_SECONDARY
+    textColor := TEXT_PRIMARY
+    borderColor := BORDER
+
+    if variant == BTN_PRIMARY {
+        if pressed { bgColor = ACCENT_ACTIVE }
+        else if hovered { bgColor = ACCENT_HOVER }
+        else { bgColor = ACCENT }
+        textColor = TEXT_INVERSE
+    } else if variant == BTN_DESTRUCTIVE {
+        if pressed { bgColor = 0xb85555 }
+        else if hovered { bgColor = 0xe07777 }
+        else { bgColor = ERROR }
+    } else if variant == BTN_GHOST {
+        if pressed { bgColor = BG_TERTIARY }
+        else if hovered { bgColor = BG_HOVER }
+        else { bgColor = BG_PRIMARY }
+    } else {
+        // Default
+        if pressed { bgColor = BG_TERTIARY }
+        else if hovered { bgColor = BG_HOVER }
+    }
+
+    if hovered { borderColor = BORDER_FOCUS }
+
+    // Draw button background (single pass for non-ghost)
+    if variant == BTN_GHOST {
+        if hovered {
+            drawFilledRect(renderer, x, y, w, h, bgColor, 255)
+        }
+    } else {
+        // Border + fill in 2 calls
+        drawFilledRect(renderer, x, y, w, h, borderColor, 255)
+        drawFilledRect(renderer, x + 1, y + 1, w - 2, h - 2, bgColor, 255)
+    }
+
+    // Draw label
+    drawColoredText(renderer, font, label, x + SPACING_SM, y + (h - 14) / 2, textColor)
+
+    return pressed
+}
+
+// Draw a small button
+drawButtonSm(renderer ptr, font ptr, label str, x int, y int, w int,
+             mx int, my int, clicked bool, variant int) bool {
+    return drawButton(renderer, font, label, x, y, w, BUTTON_HEIGHT_SM, mx, my, clicked, variant)
+}
+
+// Draw a large button
+drawButtonLg(renderer ptr, font ptr, label str, x int, y int, w int,
+             mx int, my int, clicked bool, variant int) bool {
+    return drawButton(renderer, font, label, x, y, w, BUTTON_HEIGHT_LG, mx, my, clicked, variant)
+}
+
+// Draw an icon button (square)
+drawIconButton(renderer ptr, icon str, x int, y int, size int,
+               mx int, my int, clicked bool) bool {
+    hovered := isInRect(mx, my, x, y, size, size)
+    pressed := hovered && clicked
+
+    if hovered {
+        bgColor := BG_HOVER
+        if pressed { bgColor = BG_TERTIARY }
+        drawFilledRect(renderer, x, y, size, size, bgColor, 255)
+    }
+
+    return pressed
+}

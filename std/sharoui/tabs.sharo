@@ -1,0 +1,145 @@
+// SharoUI Tabs Component
+// Tab navigation and tab panels
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+
+// Draw a horizontal tab bar
+// labels: array of strings, tabCount: number of tabs
+// Returns: new active tab index
+drawTabs(renderer ptr, font ptr, labels ptr, tabCount int, activeIndex int,
+         x int, y int, w int,
+         mx int, my int, clicked bool) int {
+
+    if tabCount == 0 { return 0 }
+
+    tabWidth := w / tabCount
+    newActive := activeIndex
+
+    // Background bar
+    drawFilledRect(renderer, x, y, w, TAB_HEIGHT, BG_SECONDARY, 255)
+
+    // Draw each tab
+    i := 0
+    for i < tabCount {
+        tabX := x + i * tabWidth
+        hovered := isInRect(mx, my, tabX, y, tabWidth, TAB_HEIGHT)
+        active := i == activeIndex
+
+        // Tab background
+        if active {
+            drawFilledRect(renderer, tabX, y, tabWidth, TAB_HEIGHT, BG_PRIMARY, 255)
+            // Active indicator
+            drawFilledRect(renderer, tabX, y + TAB_HEIGHT - 2, tabWidth, 2, ACCENT, 255)
+        } else if hovered {
+            drawFilledRect(renderer, tabX, y, tabWidth, TAB_HEIGHT, BG_HOVER, 255)
+        }
+
+        // Tab label
+        textColor := TEXT_MUTED
+        if active { textColor = TEXT_PRIMARY }
+        if hovered && !active { textColor = TEXT_SECONDARY }
+
+        drawColoredText(renderer, font, labels[i], tabX + SPACING_MD, y + (TAB_HEIGHT - 14) / 2, textColor)
+
+        // Handle click
+        if hovered && clicked {
+            newActive = i
+        }
+
+        i += 1
+    }
+
+    // Bottom border
+    drawFilledRect(renderer, x, y + TAB_HEIGHT, w, 1, BORDER, 255)
+
+    return newActive
+}
+
+// Draw tabs with fixed width per tab
+drawTabsFixed(renderer ptr, font ptr, labels ptr, tabCount int, activeIndex int,
+              x int, y int, tabWidth int,
+              mx int, my int, clicked bool) int {
+
+    if tabCount == 0 { return 0 }
+
+    newActive := activeIndex
+
+    // Draw each tab
+    i := 0
+    for i < tabCount {
+        tabX := x + i * tabWidth
+        hovered := isInRect(mx, my, tabX, y, tabWidth, TAB_HEIGHT)
+        active := i == activeIndex
+
+        // Tab background
+        if active {
+            drawFilledRect(renderer, tabX, y, tabWidth, TAB_HEIGHT, BG_PRIMARY, 255)
+            drawFilledRect(renderer, tabX, y + TAB_HEIGHT - 2, tabWidth, 2, ACCENT, 255)
+        } else if hovered {
+            drawFilledRect(renderer, tabX, y, tabWidth, TAB_HEIGHT, BG_HOVER, 255)
+        }
+
+        textColor := TEXT_MUTED
+        if active { textColor = TEXT_PRIMARY }
+        if hovered && !active { textColor = TEXT_SECONDARY }
+
+        drawColoredText(renderer, font, labels[i], tabX + SPACING_SM, y + (TAB_HEIGHT - 14) / 2, textColor)
+
+        if hovered && clicked {
+            newActive = i
+        }
+
+        i += 1
+    }
+
+    return newActive
+}
+
+// Draw vertical tabs (sidebar style)
+drawTabsVertical(renderer ptr, font ptr, labels ptr, tabCount int, activeIndex int,
+                 x int, y int, w int, itemHeight int,
+                 mx int, my int, clicked bool) int {
+
+    if tabCount == 0 { return 0 }
+
+    newActive := activeIndex
+
+    // Background
+    drawFilledRect(renderer, x, y, w, tabCount * itemHeight, BG_SECONDARY, 255)
+
+    i := 0
+    for i < tabCount {
+        tabY := y + i * itemHeight
+        hovered := isInRect(mx, my, x, tabY, w, itemHeight)
+        active := i == activeIndex
+
+        // Tab background
+        if active {
+            drawFilledRect(renderer, x, tabY, w, itemHeight, BG_TERTIARY, 255)
+            // Left indicator
+            drawFilledRect(renderer, x, tabY, 3, itemHeight, ACCENT, 255)
+        } else if hovered {
+            drawFilledRect(renderer, x, tabY, w, itemHeight, BG_HOVER, 255)
+        }
+
+        textColor := TEXT_MUTED
+        if active { textColor = TEXT_PRIMARY }
+        if hovered && !active { textColor = TEXT_SECONDARY }
+
+        drawColoredText(renderer, font, labels[i], x + SPACING_MD, tabY + (itemHeight - 14) / 2, textColor)
+
+        if hovered && clicked {
+            newActive = i
+        }
+
+        i += 1
+    }
+
+    return newActive
+}
+
+// Draw a tab panel container (content area below tabs)
+drawTabPanel(renderer ptr, x int, y int, w int, h int) {
+    drawFilledRect(renderer, x, y, w, h, BG_PRIMARY, 255)
+}

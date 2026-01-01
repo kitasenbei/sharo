@@ -1,0 +1,140 @@
+// SharoUI Modal Component
+// Modal dialogs, alerts, confirms
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+import "std/sharoui/button.sharo"
+import "std/sharoui/card.sharo"
+
+// Modal result
+MODAL_NONE := 0
+MODAL_OK := 1
+MODAL_CANCEL := 2
+
+// Draw a semi-transparent backdrop
+drawBackdrop(renderer ptr, screenW int, screenH int, alpha int) {
+    setHexColor(renderer, 0x000000, alpha)
+    fillRect(renderer, 0, 0, screenW, screenH)
+}
+
+// Draw a modal dialog box
+drawModal(renderer ptr, font ptr, title str, x int, y int, w int, h int) {
+    // Shadow
+    drawFilledRect(renderer, x + 4, y + 4, w, h, 0x000000, 100)
+
+    // Modal card
+    drawCardWithHeader(renderer, font, title, x, y, w, h)
+}
+
+// Draw a modal with message
+drawMessageModal(renderer ptr, font ptr, title str, message str,
+                 x int, y int, w int, h int) {
+    drawModal(renderer, font, title, x, y, w, h)
+
+    // Message text
+    drawColoredText(renderer, font, message, x + SPACING_MD, y + 56, TEXT_SECONDARY)
+}
+
+// Draw modal action buttons (OK/Cancel style)
+// Returns: MODAL_NONE, MODAL_OK, or MODAL_CANCEL
+drawModalButtons(renderer ptr, font ptr, x int, y int, w int,
+                 okText str, cancelText str,
+                 mx int, my int, clicked bool) int {
+    result := MODAL_NONE
+
+    btnWidth := 80
+    btnHeight := 32
+    spacing := SPACING_SM
+
+    // Cancel button (left)
+    cancelX := x + w - btnWidth * 2 - spacing - SPACING_MD
+    if drawButton(renderer, font, cancelText, cancelX, y, btnWidth, btnHeight, mx, my, clicked, BTN_DEFAULT) {
+        result = MODAL_CANCEL
+    }
+
+    // OK button (right)
+    okX := x + w - btnWidth - SPACING_MD
+    if drawButton(renderer, font, okText, okX, y, btnWidth, btnHeight, mx, my, clicked, BTN_PRIMARY) {
+        result = MODAL_OK
+    }
+
+    return result
+}
+
+// Draw a single-button modal (OK only)
+drawModalOkButton(renderer ptr, font ptr, x int, y int, w int, btnText str,
+                  mx int, my int, clicked bool) bool {
+    btnWidth := 80
+    btnHeight := 32
+    btnX := x + w - btnWidth - SPACING_MD
+
+    return drawButton(renderer, font, btnText, btnX, y, btnWidth, btnHeight, mx, my, clicked, BTN_PRIMARY)
+}
+
+// Draw a complete alert dialog
+// Returns true when dismissed
+drawAlert(renderer ptr, font ptr, title str, message str,
+          screenW int, screenH int,
+          mx int, my int, clicked bool) bool {
+
+    modalW := 300
+    modalH := 150
+    modalX := (screenW - modalW) / 2
+    modalY := (screenH - modalH) / 2
+
+    drawBackdrop(renderer, screenW, screenH, 150)
+    drawMessageModal(renderer, font, title, message, modalX, modalY, modalW, modalH)
+
+    btnY := modalY + modalH - 48
+    return drawModalOkButton(renderer, font, modalX, btnY, modalW, "OK", mx, my, clicked)
+}
+
+// Draw a complete confirm dialog
+// Returns: MODAL_NONE, MODAL_OK, or MODAL_CANCEL
+drawConfirm(renderer ptr, font ptr, title str, message str,
+            screenW int, screenH int,
+            mx int, my int, clicked bool) int {
+
+    modalW := 350
+    modalH := 150
+    modalX := (screenW - modalW) / 2
+    modalY := (screenH - modalH) / 2
+
+    drawBackdrop(renderer, screenW, screenH, 150)
+    drawMessageModal(renderer, font, title, message, modalX, modalY, modalW, modalH)
+
+    btnY := modalY + modalH - 48
+    return drawModalButtons(renderer, font, modalX, btnY, modalW, "OK", "Cancel", mx, my, clicked)
+}
+
+// Draw a destructive confirm dialog (red OK button)
+drawDestructiveConfirm(renderer ptr, font ptr, title str, message str,
+                       screenW int, screenH int, okText str,
+                       mx int, my int, clicked bool) int {
+    modalW := 350
+    modalH := 150
+    modalX := (screenW - modalW) / 2
+    modalY := (screenH - modalH) / 2
+
+    drawBackdrop(renderer, screenW, screenH, 150)
+    drawMessageModal(renderer, font, title, message, modalX, modalY, modalW, modalH)
+
+    result := MODAL_NONE
+    btnY := modalY + modalH - 48
+    btnWidth := 80
+    btnHeight := 32
+
+    // Cancel button
+    cancelX := modalX + modalW - btnWidth * 2 - SPACING_SM - SPACING_MD
+    if drawButton(renderer, font, "Cancel", cancelX, btnY, btnWidth, btnHeight, mx, my, clicked, "default") {
+        result = MODAL_CANCEL
+    }
+
+    // Destructive OK button
+    okX := modalX + modalW - btnWidth - SPACING_MD
+    if drawButton(renderer, font, okText, okX, btnY, btnWidth, btnHeight, mx, my, clicked, "destructive") {
+        result = MODAL_OK
+    }
+
+    return result
+}

@@ -1,0 +1,60 @@
+// SharoUI Card Component
+// Container for content with optional header and footer
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+
+// Draw a basic card
+drawCard(renderer ptr, x int, y int, w int, h int) {
+    // Border
+    drawFilledRect(renderer, x, y, w, h, BORDER, 255)
+    // Background
+    drawFilledRect(renderer, x + 1, y + 1, w - 2, h - 2, BG_SECONDARY, 255)
+}
+
+// Draw a card with no border (flat)
+drawCardFlat(renderer ptr, x int, y int, w int, h int) {
+    drawFilledRect(renderer, x, y, w, h, BG_SECONDARY, 255)
+}
+
+// Draw a card header with title
+drawCardHeader(renderer ptr, font ptr, title str, x int, y int, w int) {
+    // Header background
+    drawFilledRect(renderer, x + 1, y + 1, w - 2, 36, BG_TERTIARY, 255)
+    // Title
+    drawColoredText(renderer, font, title, x + SPACING_MD, y + 10, TEXT_PRIMARY)
+    // Separator line
+    drawFilledRect(renderer, x + 1, y + 37, w - 2, 1, BORDER, 255)
+}
+
+// Draw a card with header
+drawCardWithHeader(renderer ptr, font ptr, title str, x int, y int, w int, h int) {
+    drawCard(renderer, x, y, w, h)
+    drawCardHeader(renderer, font, title, x, y, w)
+}
+
+// Draw a separator line (horizontal)
+drawSeparator(renderer ptr, x int, y int, w int) {
+    drawFilledRect(renderer, x, y, w, 1, BORDER, 255)
+}
+
+// Draw a vertical separator
+drawSeparatorV(renderer ptr, x int, y int, h int) {
+    drawFilledRect(renderer, x, y, 1, h, BORDER, 255)
+}
+
+// Draw a panel (elevated card)
+drawPanel(renderer ptr, x int, y int, w int, h int) {
+    // Shadow effect (offset rectangle)
+    drawFilledRect(renderer, x + 2, y + 2, w, h, 0x0a0a0a, 128)
+    // Card
+    drawCard(renderer, x, y, w, h)
+}
+
+// Draw a card footer
+drawCardFooter(renderer ptr, x int, y int, w int, footerH int) {
+    // Separator
+    drawFilledRect(renderer, x + 1, y, w - 2, 1, BORDER, 255)
+    // Footer background
+    drawFilledRect(renderer, x + 1, y + 1, w - 2, footerH - 1, BG_TERTIARY, 255)
+}

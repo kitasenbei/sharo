@@ -1,0 +1,191 @@
+// SharoUI Input Component
+// Single-line text input with full keyboard support
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+
+// Input field state
+type InputState {
+    text: str,
+    cursor: int,
+    focused: bool
+}
+
+// Create a new input state
+newInputState() InputState {
+    return InputState("", 0, false)
+}
+
+// Create an input state with initial text
+newInputStateWith(initialText str) InputState {
+    return InputState(initialText, len(initialText), false)
+}
+
+// Draw a text input field - returns updated InputState
+drawInput(renderer ptr, font ptr, state InputState, x int, y int, w int, h int,
+          placeholder str, mx int, my int, clicked bool) InputState {
+
+    hovered := isInRect(mx, my, x, y, w, h)
+
+    // Handle focus
+    focused := state.focused
+    if clicked {
+        focused = hovered
+    }
+
+    // Border color based on state
+    borderColor := BORDER
+    if hovered { borderColor = TEXT_MUTED }
+    if focused { borderColor = ACCENT }
+
+    // Draw input box
+    drawFilledRect(renderer, x, y, w, h, borderColor, 255)
+    drawFilledRect(renderer, x + 1, y + 1, w - 2, h - 2, BG_SECONDARY, 255)
+
+    // Text or placeholder
+    text := state.text
+    cursor := state.cursor
+
+    textX := x + SPACING_SM
+    textY := y + (h - 14) / 2
+
+    if len(text) == 0 {
+        drawColoredText(renderer, font, placeholder, textX, textY, TEXT_MUTED)
+    } else {
+        drawColoredText(renderer, font, text, textX, textY, TEXT_PRIMARY)
+    }
+
+    // Draw cursor when focused
+    if focused {
+        // Measure actual text width up to cursor
+        textBeforeCursor := substr(text, 0, cursor)
+        cursorX := textX + getTextWidth(font, textBeforeCursor)
+        drawFilledRect(renderer, cursorX, textY, 2, 14, ACCENT, 255)
+    }
+
+    return InputState(text, cursor, focused)
+}
+
+// Handle text input event - call when event type is 771
+inputHandleTextInput(state InputState, inputText str) InputState {
+    if !state.focused { return state }
+    if len(inputText) == 0 { return state }
+
+    // Insert text at cursor position
+    before := substr(state.text, 0, state.cursor)
+    after := substr(state.text, state.cursor, len(state.text) - state.cursor)
+    newText := before + inputText + after
+    newCursor := state.cursor + len(inputText)
+
+    return InputState(newText, newCursor, true)
+}
+
+// Handle key down event - call when event type is 768
+inputHandleKeyDown(state InputState, scancode int) InputState {
+    if !state.focused { return state }
+
+    text := state.text
+    cursor := state.cursor
+    textLen := len(text)
+
+    // Backspace
+    if scancode == 42 {
+        if cursor > 0 {
+            before := substr(text, 0, cursor - 1)
+            after := substr(text, cursor, textLen - cursor)
+            return InputState(before + after, cursor - 1, true)
+        }
+        return state
+    }
+
+    // Delete
+    if scancode == 76 {
+        if cursor < textLen {
+            before := substr(text, 0, cursor)
+            after := substr(text, cursor + 1, textLen - cursor - 1)
+            return InputState(before + after, cursor, true)
+        }
+        return state
+    }
+
+    // Left arrow
+    if scancode == 80 {
+        if cursor > 0 {
+            return InputState(text, cursor - 1, true)
+        }
+        return state
+    }
+
+    // Right arrow
+    if scancode == 79 {
+        if cursor < textLen {
+            return InputState(text, cursor + 1, true)
+        }
+        return state
+    }
+
+    // Home
+    if scancode == 74 {
+        return InputState(text, 0, true)
+    }
+
+    // End
+    if scancode == 77 {
+        return InputState(text, textLen, true)
+    }
+
+    return state
+}
+
+// Draw a search input with icon placeholder
+drawSearchInput(renderer ptr, font ptr, state InputState, x int, y int, w int, h int,
+                mx int, my int, clicked bool) InputState {
+    return drawInput(renderer, font, state, x, y, w, h, "Search...", mx, my, clicked)
+}
+
+// Draw a password input (text hidden as asterisks)
+drawPasswordInput(renderer ptr, font ptr, state InputState, x int, y int, w int, h int,
+                  mx int, my int, clicked bool) InputState {
+
+    hovered := isInRect(mx, my, x, y, w, h)
+    focused := state.focused
+    if clicked { focused = hovered }
+
+    borderColor := BORDER
+    if hovered { borderColor = TEXT_MUTED }
+    if focused { borderColor = ACCENT }
+
+    drawFilledRect(renderer, x, y, w, h, borderColor, 255)
+    drawFilledRect(renderer, x + 1, y + 1, w - 2, h - 2, BG_SECONDARY, 255)
+
+    textX := x + SPACING_SM
+    textY := y + (h - 14) / 2
+
+    // Create masked version for display
+    maskedLen := len(state.text)
+    if maskedLen == 0 {
+        drawColoredText(renderer, font, "Password", textX, textY, TEXT_MUTED)
+    } else {
+        masked := ""
+        i := 0
+        for i < maskedLen {
+            masked = masked + "*"
+            i += 1
+        }
+        drawColoredText(renderer, font, masked, textX, textY, TEXT_PRIMARY)
+    }
+
+    if focused {
+        // Measure masked text width
+        maskedBeforeCursor := ""
+        k := 0
+        for k < state.cursor {
+            maskedBeforeCursor = maskedBeforeCursor + "*"
+            k += 1
+        }
+        cursorX := textX + getTextWidth(font, maskedBeforeCursor)
+        drawFilledRect(renderer, cursorX, textY, 2, 14, ACCENT, 255)
+    }
+
+    return InputState(state.text, state.cursor, focused)
+}

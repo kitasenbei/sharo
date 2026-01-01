@@ -1,0 +1,99 @@
+// SharoUI Label Component
+// Form labels and text display
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+
+// Draw a form label
+drawLabel(renderer ptr, font ptr, text str, x int, y int) {
+    drawColoredText(renderer, font, text, x, y, TEXT_PRIMARY)
+}
+
+// Draw a muted/secondary label
+drawLabelMuted(renderer ptr, font ptr, text str, x int, y int) {
+    drawColoredText(renderer, font, text, x, y, TEXT_MUTED)
+}
+
+// Draw a label with required asterisk
+drawLabelRequired(renderer ptr, font ptr, text str, x int, y int) {
+    drawColoredText(renderer, font, text, x, y, TEXT_PRIMARY)
+    textLen := len(text)
+    drawColoredText(renderer, font, "*", x + textLen * 8 + 2, y, ERROR)
+}
+
+// Draw helper text (small, muted, below inputs)
+drawHelperText(renderer ptr, font ptr, text str, x int, y int) {
+    drawColoredText(renderer, font, text, x, y, TEXT_MUTED)
+}
+
+// Draw error text
+drawErrorText(renderer ptr, font ptr, text str, x int, y int) {
+    drawColoredText(renderer, font, text, x, y, ERROR)
+}
+
+// Draw success text
+drawSuccessText(renderer ptr, font ptr, text str, x int, y int) {
+    drawColoredText(renderer, font, text, x, y, SUCCESS)
+}
+
+// Draw a heading (larger, bold-ish via color)
+drawHeading(renderer ptr, font ptr, text str, x int, y int) {
+    drawColoredText(renderer, font, text, x, y, TEXT_PRIMARY)
+}
+
+// Draw a subheading
+drawSubheading(renderer ptr, font ptr, text str, x int, y int) {
+    drawColoredText(renderer, font, text, x, y, TEXT_SECONDARY)
+}
+
+// Form group container - just draws a label above content area
+drawFormGroup(renderer ptr, font ptr, labelText str, x int, y int, w int) int {
+    drawLabel(renderer, font, labelText, x, y)
+    // Return Y position for the input (below label)
+    return y + 20
+}
+
+// Form group with required asterisk
+drawFormGroupRequired(renderer ptr, font ptr, labelText str, x int, y int, w int) int {
+    drawLabelRequired(renderer, font, labelText, x, y)
+    return y + 20
+}
+
+// Divider with text (--- OR ---)
+drawDividerWithText(renderer ptr, font ptr, text str, x int, y int, w int) {
+    textLen := len(text)
+    textW := textLen * 8
+    textX := x + (w - textW) / 2
+
+    // Left line
+    lineY := y + 7
+    drawFilledRect(renderer, x, lineY, textX - x - SPACING_SM, 1, BORDER, 255)
+
+    // Text
+    drawColoredText(renderer, font, text, textX, y, TEXT_MUTED)
+
+    // Right line
+    rightX := textX + textW + SPACING_SM
+    drawFilledRect(renderer, rightX, lineY, x + w - rightX, 1, BORDER, 255)
+}
+
+// Simple text link (underlined on hover)
+drawLink(renderer ptr, font ptr, text str, x int, y int, mx int, my int) bool {
+    textLen := len(text)
+    w := textLen * 8
+    h := 16
+
+    hovered := isInRect(mx, my, x, y, w, h)
+
+    color := ACCENT
+    if hovered { color = ACCENT_HOVER }
+
+    drawColoredText(renderer, font, text, x, y, color)
+
+    // Underline on hover
+    if hovered {
+        drawFilledRect(renderer, x, y + 14, w, 1, color, 255)
+    }
+
+    return hovered
+}

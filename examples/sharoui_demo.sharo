@@ -1,0 +1,413 @@
+// SharoUI Demo - Showcasing all components
+// Run with: ./sharo examples/sharoui_demo.sharo
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+import "std/sharoui/button.sharo"
+import "std/sharoui/card.sharo"
+import "std/sharoui/checkbox.sharo"
+import "std/sharoui/progress.sharo"
+import "std/sharoui/slider.sharo"
+import "std/sharoui/list.sharo"
+import "std/sharoui/modal.sharo"
+import "std/sharoui/tabs.sharo"
+import "std/sharoui/icons.sharo"
+import "std/sharoui/dropdown.sharo"
+import "std/sharoui/label.sharo"
+import "std/sharoui/tooltip.sharo"
+import "std/sharoui/iconset.sharo"
+import "std/sharoui/textarea.sharo"
+import "std/sharoui/input.sharo"
+
+// Window setup
+WINDOW_W := 900
+WINDOW_H := 650
+
+// Demo state
+activeTab := 0
+tabLabels := ["Buttons", "Forms", "Lists", "Modals", "Icons"]
+
+// Form state
+checkbox1 := false
+checkbox2 := true
+radioOption := 0
+switchOn := false
+sliderVal := 0.5
+sliderInt := 50
+
+// Dropdown state
+dropdownOptions := ["Apple", "Banana", "Cherry", "Date"]
+dropdownState := newDropdownState()
+tooltipState := newTooltipState()
+
+// Textarea state
+textareaState := newTextareaState()
+
+// Input state
+inputState := newInputState()
+
+// List state
+listItems := ["Apple", "Banana", "Cherry", "Date", "Elderberry", "Fig", "Grape", "Honeydew"]
+listState := newListState()
+
+// Modal state
+showAlert := false
+showConfirm := false
+confirmResult := 0
+
+// Animation
+frame := 0
+progressVal := 0.0
+
+init(0x20)
+initTTF()
+
+win := createWindow("SharoUI Demo", WINDOW_W, WINDOW_H, 0)
+ren := createRenderer(win)
+
+// Try to load a font - adjust path as needed
+font := loadFont("/usr/share/fonts/adwaita-sans-fonts/AdwaitaSans-Regular.ttf", 14)
+if font == nil {
+    font = loadFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
+}
+if font == nil {
+    font = loadFont("/usr/share/fonts/TTF/DejaVuSans.ttf", 14)
+}
+
+// Load icon set
+icons := loadIconSet(ren, "assets/icons")
+
+// Enable text input
+startTextInput(win)
+
+running := true
+for running {
+    mx := getMouseX()
+    my := getMouseY()
+    clicked := false
+    wheelY := 0
+
+    // Drain ALL events this frame (prevents input lag)
+    evt := pollEvent()
+    for evt != 0 {
+        if evt == 256 { running = false }
+        if evt == 1025 { clicked = true }
+        if evt == 1027 { wheelY = getMouseWheelY() }
+
+        // Text input event (771) - typing characters
+        if evt == 771 {
+            inputText := getTextInput()
+            textareaState = textareaHandleTextInput(textareaState, inputText)
+            inputState = inputHandleTextInput(inputState, inputText)
+        }
+
+        // Key down event (768) - backspace, arrows, etc.
+        if evt == 768 {
+            key := eventKey()
+            textareaState = textareaHandleKeyDown(textareaState, key)
+            inputState = inputHandleKeyDown(inputState, key)
+        }
+
+        evt = pollEvent()
+    }
+
+    // Update animations
+    frame += 1
+    progressVal = progressVal + 0.005
+    if progressVal > 1.0 { progressVal = 0.0 }
+
+    // Clear background
+    drawFilledRect(ren, 0, 0, WINDOW_W, WINDOW_H, BG_PRIMARY, 255)
+
+    // Header
+    drawFilledRect(ren, 0, 0, WINDOW_W, 50, BG_SECONDARY, 255)
+    drawColoredText(ren, font, "SharoUI Component Library", 20, 16, TEXT_PRIMARY)
+    drawFilledRect(ren, 0, 50, WINDOW_W, 1, BORDER, 255)
+
+    // Tab navigation
+    activeTab = drawTabs(ren, font, tabLabels, 5, activeTab, 0, 51, WINDOW_W, mx, my, clicked)
+
+    // Content area
+    contentY := 90
+    contentH := WINDOW_H - contentY
+
+    // === Buttons Tab ===
+    if activeTab == 0 {
+        // Button variants card
+        drawCardWithHeader(ren, font, "Button Variants", 20, contentY, 280, 200)
+
+        y := contentY + 50
+        if drawButton(ren, font, "Default", 40, y, 100, 32, mx, my, clicked, BTN_DEFAULT) {
+            print("Default clicked")
+        }
+        if drawButton(ren, font, "Primary", 150, y, 100, 32, mx, my, clicked, BTN_PRIMARY) {
+            print("Primary clicked")
+        }
+
+        y += 44
+        if drawButton(ren, font, "Ghost", 40, y, 100, 32, mx, my, clicked, BTN_GHOST) {
+            print("Ghost clicked")
+        }
+        if drawButton(ren, font, "Destructive", 150, y, 100, 32, mx, my, clicked, BTN_DESTRUCTIVE) {
+            print("Destructive clicked")
+        }
+
+        y += 44
+        if drawButtonSm(ren, font, "Small", 40, y, 80, mx, my, clicked, BTN_DEFAULT) {
+            print("Small clicked")
+        }
+        if drawButtonLg(ren, font, "Large", 130, y, 120, mx, my, clicked, BTN_PRIMARY) {
+            print("Large clicked")
+        }
+
+        // Progress card
+        drawCardWithHeader(ren, font, "Progress Indicators", 320, contentY, 280, 200)
+
+        drawColoredText(ren, font, "Progress Bar:", 340, contentY + 50, TEXT_SECONDARY)
+        drawProgressBordered(ren, progressVal, 340, contentY + 70, 240, 16)
+
+        drawColoredText(ren, font, "With Label:", 340, contentY + 100, TEXT_SECONDARY)
+        drawProgressWithLabel(ren, font, progressVal, 340, contentY + 120, 200, 16)
+
+        drawColoredText(ren, font, "Spinner:", 340, contentY + 150, TEXT_SECONDARY)
+        drawSpinner(ren, 420, contentY + 145, 24, frame)
+
+        drawColoredText(ren, font, "Indeterminate:", 470, contentY + 150, TEXT_SECONDARY)
+        drawProgressIndeterminate(ren, 340, contentY + 175, 240, 8, frame)
+
+        // Cards card
+        drawCardWithHeader(ren, font, "Card Styles", 620, contentY, 260, 200)
+        drawCard(ren, 640, contentY + 50, 100, 60)
+        drawColoredText(ren, font, "Basic", 665, contentY + 75, TEXT_MUTED)
+
+        drawPanel(ren, 760, contentY + 50, 100, 60)
+        drawColoredText(ren, font, "Panel", 785, contentY + 75, TEXT_MUTED)
+
+        drawCardFlat(ren, 640, contentY + 130, 100, 50)
+        drawColoredText(ren, font, "Flat", 670, contentY + 150, TEXT_MUTED)
+    }
+
+    // === Forms Tab ===
+    if activeTab == 1 {
+        // Checkboxes card
+        drawCardWithHeader(ren, font, "Checkboxes & Switches", 20, contentY, 280, 200)
+
+        checkbox1 = drawCheckbox(ren, font, "Option 1", checkbox1, 40, contentY + 55, mx, my, clicked)
+        checkbox2 = drawCheckbox(ren, font, "Option 2 (checked)", checkbox2, 40, contentY + 85, mx, my, clicked)
+
+        drawColoredText(ren, font, "Toggle Switch:", 40, contentY + 125, TEXT_SECONDARY)
+        switchOn = drawSwitch(ren, switchOn, 150, contentY + 122, mx, my, clicked)
+
+        state := "OFF"
+        if switchOn { state = "ON" }
+        drawColoredText(ren, font, state, 200, contentY + 125, TEXT_MUTED)
+
+        // Radio buttons
+        drawColoredText(ren, font, "Radio Group:", 40, contentY + 160, TEXT_SECONDARY)
+        if drawRadio(ren, font, "A", radioOption == 0, 140, contentY + 157, mx, my, clicked) { radioOption = 0 }
+        if drawRadio(ren, font, "B", radioOption == 1, 180, contentY + 157, mx, my, clicked) { radioOption = 1 }
+        if drawRadio(ren, font, "C", radioOption == 2, 220, contentY + 157, mx, my, clicked) { radioOption = 2 }
+
+        // Sliders card
+        drawCardWithHeader(ren, font, "Sliders", 320, contentY, 280, 200)
+
+        drawColoredText(ren, font, "Horizontal:", 340, contentY + 55, TEXT_SECONDARY)
+        sliderVal = drawSlider(ren, sliderVal, 340, contentY + 75, 240, 24, mx, my, clicked)
+
+        pct := trunc(sliderVal * 100.0)
+        drawColoredText(ren, font, "{pct}%", 340, contentY + 105, ACCENT)
+
+        drawColoredText(ren, font, "Integer (0-100):", 340, contentY + 135, TEXT_SECONDARY)
+        sliderInt = drawSliderInt(ren, sliderInt, 0, 100, 340, contentY + 155, 200, 24, mx, my, clicked)
+        drawColoredText(ren, font, "{sliderInt}", 550, contentY + 158, ACCENT)
+
+        // Dropdown & Labels card
+        drawCardWithHeader(ren, font, "Dropdown & Labels", 620, contentY, 260, 200)
+
+        inputY := drawFormGroup(ren, font, "Select a fruit:", 640, contentY + 50, 220)
+        dropdownState = drawDropdown(ren, font, dropdownOptions, 4, dropdownState, 640, inputY, 220, 32, mx, my, clicked)
+
+        // Show selected with badge
+        if dropdownState.selectedIndex >= 0 {
+            selected := dropdownOptions[dropdownState.selectedIndex]
+            drawBadge(ren, font, selected, 640, contentY + 130, ACCENT)
+        }
+
+        // Link example
+        drawLabel(ren, font, "Links:", 640, contentY + 160)
+        linkHovered := drawLink(ren, font, "Click here", 700, contentY + 160, mx, my)
+
+        // Tooltip on hover
+        drawTooltipSimple(ren, font, "This is a link!", mx, my, linkHovered)
+
+        // Input card (second row)
+        drawCardWithHeader(ren, font, "Text Input", 20, contentY + 210, 280, 90)
+        inputState = drawInput(ren, font, inputState, 40, contentY + 250, 240, 32, "Type here...", mx, my, clicked)
+
+        // Textarea card (second row)
+        drawCardWithHeader(ren, font, "Textarea", 320, contentY + 210, 280, 120)
+        textareaState = drawTextarea(ren, font, textareaState, 340, contentY + 260, 240, 60, "Multi-line text...", mx, my, clicked)
+    }
+
+    // === Lists Tab ===
+    if activeTab == 2 {
+        drawCardWithHeader(ren, font, "Scrollable List", 20, contentY, 300, 300)
+
+        listState = drawList(ren, font, listItems, 8, listState,
+                             30, contentY + 45, 280, 240, 28,
+                             mx, my, clicked, wheelY)
+
+        if listState.selectedIndex >= 0 {
+            selected := listItems[listState.selectedIndex]
+            drawColoredText(ren, font, "Selected: {selected}", 30, contentY + 295, TEXT_SECONDARY)
+        }
+
+        // Simple list
+        drawCardWithHeader(ren, font, "Simple List", 340, contentY, 250, 200)
+        simpleItems := ["Home", "Profile", "Settings", "Logout"]
+        drawSimpleList(ren, font, simpleItems, 4, 1, 350, contentY + 50, 230, 32, mx, my, clicked)
+    }
+
+    // === Modals Tab ===
+    if activeTab == 3 {
+        drawCardWithHeader(ren, font, "Modal Dialogs", 20, contentY, 300, 150)
+
+        if drawButton(ren, font, "Show Alert", 40, contentY + 55, 120, 32, mx, my, clicked, BTN_DEFAULT) {
+            showAlert = true
+        }
+
+        if drawButton(ren, font, "Show Confirm", 40, contentY + 95, 120, 32, mx, my, clicked, BTN_PRIMARY) {
+            showConfirm = true
+        }
+
+        // Show result
+        if confirmResult == MODAL_OK {
+            drawColoredText(ren, font, "Last result: OK", 180, contentY + 60, SUCCESS)
+        }
+        if confirmResult == MODAL_CANCEL {
+            drawColoredText(ren, font, "Last result: Cancel", 180, contentY + 60, ERROR)
+        }
+    }
+
+    // === Icons Tab ===
+    if activeTab == 4 {
+        drawCardWithHeader(ren, font, "Lucide Icons (38 icons)", 20, contentY, 860, 280)
+
+        iconSize := 24
+        iconGap := 70
+        startX := 40
+
+        // Row 1: Navigation
+        iconY := contentY + 50
+        drawColoredText(ren, font, "Navigation:", startX, iconY, TEXT_SECONDARY)
+        iconY += 20
+
+        drawIcon(ren, icons.chevronLeft, startX, iconY, iconSize)
+        drawColoredText(ren, font, "<", startX + 8, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.chevronRight, startX + iconGap, iconY, iconSize)
+        drawColoredText(ren, font, ">", startX + iconGap + 8, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.chevronUp, startX + iconGap*2, iconY, iconSize)
+        drawColoredText(ren, font, "^", startX + iconGap*2 + 8, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.chevronDown, startX + iconGap*3, iconY, iconSize)
+        drawColoredText(ren, font, "v", startX + iconGap*3 + 8, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.arrowLeft, startX + iconGap*4, iconY, iconSize)
+        drawColoredText(ren, font, "arr<", startX + iconGap*4, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.arrowRight, startX + iconGap*5, iconY, iconSize)
+        drawColoredText(ren, font, "arr>", startX + iconGap*5, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.menu, startX + iconGap*6, iconY, iconSize)
+        drawColoredText(ren, font, "menu", startX + iconGap*6, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.home, startX + iconGap*7, iconY, iconSize)
+        drawColoredText(ren, font, "home", startX + iconGap*7, iconY + 28, TEXT_MUTED)
+
+        // Row 2: Actions
+        iconY += 55
+        drawColoredText(ren, font, "Actions:", startX, iconY, TEXT_SECONDARY)
+        iconY += 20
+
+        drawIcon(ren, icons.check, startX, iconY, iconSize)
+        drawColoredText(ren, font, "check", startX, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.x, startX + iconGap, iconY, iconSize)
+        drawColoredText(ren, font, "x", startX + iconGap + 8, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.plus, startX + iconGap*2, iconY, iconSize)
+        drawColoredText(ren, font, "plus", startX + iconGap*2, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.minus, startX + iconGap*3, iconY, iconSize)
+        drawColoredText(ren, font, "minus", startX + iconGap*3, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.edit, startX + iconGap*4, iconY, iconSize)
+        drawColoredText(ren, font, "edit", startX + iconGap*4, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.trash, startX + iconGap*5, iconY, iconSize)
+        drawColoredText(ren, font, "trash", startX + iconGap*5, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.copy, startX + iconGap*6, iconY, iconSize)
+        drawColoredText(ren, font, "copy", startX + iconGap*6, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.search, startX + iconGap*7, iconY, iconSize)
+        drawColoredText(ren, font, "search", startX + iconGap*7, iconY + 28, TEXT_MUTED)
+
+        // Row 3: Files & UI
+        iconY += 55
+        drawColoredText(ren, font, "Files & UI:", startX, iconY, TEXT_SECONDARY)
+        iconY += 20
+
+        drawIcon(ren, icons.file, startX, iconY, iconSize)
+        drawColoredText(ren, font, "file", startX, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.folder, startX + iconGap, iconY, iconSize)
+        drawColoredText(ren, font, "folder", startX + iconGap, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.save, startX + iconGap*2, iconY, iconSize)
+        drawColoredText(ren, font, "save", startX + iconGap*2, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.download, startX + iconGap*3, iconY, iconSize)
+        drawColoredText(ren, font, "down", startX + iconGap*3, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.upload, startX + iconGap*4, iconY, iconSize)
+        drawColoredText(ren, font, "up", startX + iconGap*4 + 4, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.settings, startX + iconGap*5, iconY, iconSize)
+        drawColoredText(ren, font, "set", startX + iconGap*5 + 2, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.user, startX + iconGap*6, iconY, iconSize)
+        drawColoredText(ren, font, "user", startX + iconGap*6, iconY + 28, TEXT_MUTED)
+
+        drawIcon(ren, icons.star, startX + iconGap*7, iconY, iconSize)
+        drawColoredText(ren, font, "star", startX + iconGap*7, iconY + 28, TEXT_MUTED)
+    }
+
+    // Draw modals on top
+    if showAlert {
+        if drawAlert(ren, font, "Alert", "This is an alert message!", WINDOW_W, WINDOW_H, mx, my, clicked) {
+            showAlert = false
+        }
+    }
+
+    if showConfirm {
+        result := drawConfirm(ren, font, "Confirm", "Are you sure you want to proceed?", WINDOW_W, WINDOW_H, mx, my, clicked)
+        if result != MODAL_NONE {
+            confirmResult = result
+            showConfirm = false
+        }
+    }
+
+    present(ren)
+    delay(16)
+}
+
+stopTextInput(win)
+destroyIconSet(icons)
+destroyFont(font)
+destroyRenderer(ren)
+destroyWindow(win)
+quitTTF()
+quit()

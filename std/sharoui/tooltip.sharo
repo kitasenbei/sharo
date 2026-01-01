@@ -1,0 +1,101 @@
+// SharoUI Tooltip Component
+// Hover hints and info popups
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+
+// Tooltip state (tracks hover time)
+type TooltipState {
+    hoverTime: int,
+    visible: bool
+}
+
+newTooltipState() TooltipState {
+    return TooltipState(0, false)
+}
+
+// Draw a tooltip at position (call after the element it's attached to)
+// Only shows after hovering for delay frames
+drawTooltip(renderer ptr, font ptr, text str, x int, y int,
+            isHovered bool, state TooltipState, delay int) TooltipState {
+
+    hoverTime := state.hoverTime
+    visible := state.visible
+
+    if isHovered {
+        hoverTime += 1
+        if hoverTime >= delay {
+            visible = true
+        }
+    } else {
+        hoverTime = 0
+        visible = false
+    }
+
+    if visible {
+        // Calculate tooltip size
+        textLen := len(text)
+        tipW := textLen * 8 + SPACING_MD * 2
+        tipH := 24
+
+        // Position above cursor, centered
+        tipX := x - tipW / 2
+        tipY := y - tipH - 8
+
+        // Keep on screen
+        if tipX < 4 { tipX = 4 }
+        if tipY < 4 { tipY = y + 20 }  // Show below if no room above
+
+        // Shadow
+        drawFilledRect(renderer, tipX + 2, tipY + 2, tipW, tipH, 0x000000, 100)
+
+        // Background
+        drawFilledRect(renderer, tipX, tipY, tipW, tipH, BG_TERTIARY, 255)
+        drawFilledRect(renderer, tipX, tipY, tipW, 1, BORDER, 255)
+        drawFilledRect(renderer, tipX, tipY + tipH - 1, tipW, 1, BORDER, 255)
+        drawFilledRect(renderer, tipX, tipY, 1, tipH, BORDER, 255)
+        drawFilledRect(renderer, tipX + tipW - 1, tipY, 1, tipH, BORDER, 255)
+
+        // Text
+        drawColoredText(renderer, font, text, tipX + SPACING_MD, tipY + 5, TEXT_PRIMARY)
+    }
+
+    return TooltipState(hoverTime, visible)
+}
+
+// Simple tooltip - shows immediately on hover
+drawTooltipSimple(renderer ptr, font ptr, text str, x int, y int, isHovered bool) {
+    if !isHovered { return }
+
+    textLen := len(text)
+    tipW := textLen * 8 + SPACING_MD * 2
+    tipH := 24
+    tipX := x - tipW / 2
+    tipY := y - tipH - 8
+
+    if tipX < 4 { tipX = 4 }
+    if tipY < 4 { tipY = y + 20 }
+
+    drawFilledRect(renderer, tipX + 2, tipY + 2, tipW, tipH, 0x000000, 100)
+    drawFilledRect(renderer, tipX, tipY, tipW, tipH, BG_TERTIARY, 255)
+    drawFilledRect(renderer, tipX, tipY, tipW, 1, BORDER, 255)
+    drawFilledRect(renderer, tipX, tipY + tipH - 1, tipW, 1, BORDER, 255)
+    drawFilledRect(renderer, tipX, tipY, 1, tipH, BORDER, 255)
+    drawFilledRect(renderer, tipX + tipW - 1, tipY, 1, tipH, BORDER, 255)
+    drawColoredText(renderer, font, text, tipX + SPACING_MD, tipY + 5, TEXT_PRIMARY)
+}
+
+// Badge/pill - small label next to elements
+drawBadge(renderer ptr, font ptr, text str, x int, y int, color int) {
+    textLen := len(text)
+    badgeW := textLen * 7 + 12
+    badgeH := 18
+
+    drawFilledRect(renderer, x, y, badgeW, badgeH, color, 255)
+    drawColoredText(renderer, font, text, x + 6, y + 2, TEXT_INVERSE)
+}
+
+// Status indicator dot
+drawStatusDot(renderer ptr, x int, y int, size int, color int) {
+    drawFilledRect(renderer, x, y, size, size, color, 255)
+}

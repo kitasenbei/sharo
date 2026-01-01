@@ -1,0 +1,95 @@
+// SharoUI Utils - Helper functions
+// Color extraction, hit testing, common utilities
+
+import "std/sharoui/theme.sharo"
+
+// === Color Helpers ===
+
+// Extract red component from hex color (0xRRGGBB)
+colorR(hex int) int {
+    return (hex / 65536) % 256
+}
+
+// Extract green component from hex color
+colorG(hex int) int {
+    return (hex / 256) % 256
+}
+
+// Extract blue component from hex color
+colorB(hex int) int {
+    return hex % 256
+}
+
+// Set draw color from hex value
+setHexColor(renderer ptr, hex int, alpha int) {
+    setDrawColor(renderer, colorR(hex), colorG(hex), colorB(hex), alpha)
+}
+
+// === Hit Testing ===
+
+// Check if point (mx, my) is inside rectangle
+isInRect(mx int, my int, x int, y int, w int, h int) bool {
+    if mx >= x {
+        if mx < x + w {
+            if my >= y {
+                if my < y + h {
+                    return true
+                }
+            }
+        }
+    }
+    return false
+}
+
+// === Drawing Helpers ===
+
+// Draw a filled rectangle with hex color
+drawFilledRect(renderer ptr, x int, y int, w int, h int, color int, alpha int) {
+    setHexColor(renderer, color, alpha)
+    fillRect(renderer, x, y, w, h)
+}
+
+// Draw a rectangle outline with hex color
+drawOutlineRect(renderer ptr, x int, y int, w int, h int, color int, alpha int) {
+    setHexColor(renderer, color, alpha)
+    drawRect(renderer, x, y, w, h)
+}
+
+// Draw a bordered box (fill + border)
+drawBorderedBox(renderer ptr, x int, y int, w int, h int, bgColor int, borderColor int) {
+    setHexColor(renderer, borderColor, 255)
+    fillRect(renderer, x, y, w, h)
+    setHexColor(renderer, bgColor, 255)
+    fillRect(renderer, x + 1, y + 1, w - 2, h - 2)
+}
+
+// Draw text with hex color
+drawColoredText(renderer ptr, font ptr, text str, x int, y int, color int) {
+    drawText(renderer, font, text, x, y, colorR(color), colorG(color), colorB(color))
+}
+
+// === Math Helpers ===
+
+// Clamp integer value between min and max
+clampInt(value int, minVal int, maxVal int) int {
+    if value < minVal { return minVal }
+    if value > maxVal { return maxVal }
+    return value
+}
+
+// Clamp float value between min and max
+clampFloat(value float, minVal float, maxVal float) float {
+    if value < minVal { return minVal }
+    if value > maxVal { return maxVal }
+    return value
+}
+
+// Linear interpolation
+lerp(a float, b float, t float) float {
+    return a + (b - a) * t
+}
+
+// Map value from one range to another
+mapRange(value float, inMin float, inMax float, outMin float, outMax float) float {
+    return outMin + (value - inMin) * (outMax - outMin) / (inMax - inMin)
+}

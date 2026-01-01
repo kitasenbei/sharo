@@ -1,0 +1,186 @@
+// SharoUI Textarea Component
+// Multi-line text input with full keyboard support
+
+import "std/sharoui/theme.sharo"
+import "std/sharoui/utils.sharo"
+
+// SDL3 event types
+TEXT_INPUT_EVENT := 771
+KEY_DOWN_EVENT := 768
+
+// SDL3 scancodes
+KEY_BACKSPACE := 42
+KEY_DELETE := 76
+KEY_RETURN := 40
+KEY_LEFT := 80
+KEY_RIGHT := 79
+KEY_HOME := 74
+KEY_END := 77
+
+// Textarea state
+type TextareaState {
+    text: str,
+    cursorPos: int,
+    scrollOffset: int,
+    focused: bool
+}
+
+newTextareaState() TextareaState {
+    return TextareaState("", 0, 0, false)
+}
+
+newTextareaStateWith(initialText str) TextareaState {
+    return TextareaState(initialText, len(initialText), 0, false)
+}
+
+// Draw a textarea - returns updated state
+drawTextarea(renderer ptr, font ptr, state TextareaState,
+             x int, y int, w int, h int,
+             placeholder str, mx int, my int, clicked bool) TextareaState {
+
+    hovered := isInRect(mx, my, x, y, w, h)
+    focused := state.focused
+
+    if clicked {
+        focused = hovered
+    }
+
+    // Border color based on state
+    borderColor := BORDER
+    if hovered { borderColor = TEXT_MUTED }
+    if focused { borderColor = ACCENT }
+
+    // Draw border and background
+    drawFilledRect(renderer, x, y, w, h, borderColor, 255)
+    drawFilledRect(renderer, x + 1, y + 1, w - 2, h - 2, BG_SECONDARY, 255)
+
+    text := state.text
+    cursorPos := state.cursorPos
+    padding := SPACING_SM
+
+    // Draw text or placeholder
+    textX := x + padding
+    textY := y + padding
+    lineHeight := 18
+
+    if len(text) == 0 {
+        drawColoredText(renderer, font, placeholder, textX, textY, TEXT_MUTED)
+    } else {
+        // Split by newlines and draw each line
+        lines := split(text, "\n")
+        lineCount := len(lines)
+        i := 0
+        for i < lineCount {
+            line := lines[i]
+            drawColoredText(renderer, font, line, textX, textY + i * lineHeight, TEXT_PRIMARY)
+            i += 1
+        }
+    }
+
+    // Draw cursor when focused
+    if focused {
+        // Find which line the cursor is on and position within that line
+        beforeCursor := substr(text, 0, cursorPos)
+        cursorLine := 0
+        lastNewline := -1
+
+        // Count newlines before cursor to find line number
+        j := 0
+        for j < len(beforeCursor) {
+            ch := substr(beforeCursor, j, 1)
+            if ch == "\n" {
+                cursorLine += 1
+                lastNewline = j
+            }
+            j += 1
+        }
+
+        // Get text on current line before cursor
+        lineStart := lastNewline + 1
+        textOnLine := substr(beforeCursor, lineStart, len(beforeCursor) - lineStart)
+
+        cursorDrawX := textX + getTextWidth(font, textOnLine)
+        cursorDrawY := textY + cursorLine * lineHeight
+        drawFilledRect(renderer, cursorDrawX, cursorDrawY, 2, 16, ACCENT, 255)
+    }
+
+    return TextareaState(text, cursorPos, state.scrollOffset, focused)
+}
+
+// Handle text input event - call when event type is TEXT_INPUT_EVENT (771)
+textareaHandleTextInput(state TextareaState, inputText str) TextareaState {
+    if !state.focused { return state }
+    if len(inputText) == 0 { return state }
+
+    // Insert text at cursor position
+    before := substr(state.text, 0, state.cursorPos)
+    after := substr(state.text, state.cursorPos, len(state.text) - state.cursorPos)
+    newText := before + inputText + after
+    newCursor := state.cursorPos + len(inputText)
+
+    return TextareaState(newText, newCursor, state.scrollOffset, true)
+}
+
+// Handle key down event - call when event type is KEY_DOWN_EVENT (768)
+textareaHandleKeyDown(state TextareaState, scancode int) TextareaState {
+    if !state.focused { return state }
+
+    text := state.text
+    cursorPos := state.cursorPos
+    textLen := len(text)
+
+    // Backspace - delete character before cursor
+    if scancode == KEY_BACKSPACE {
+        if cursorPos > 0 {
+            before := substr(text, 0, cursorPos - 1)
+            after := substr(text, cursorPos, textLen - cursorPos)
+            return TextareaState(before + after, cursorPos - 1, state.scrollOffset, true)
+        }
+        return state
+    }
+
+    // Delete - delete character after cursor
+    if scancode == KEY_DELETE {
+        if cursorPos < textLen {
+            before := substr(text, 0, cursorPos)
+            after := substr(text, cursorPos + 1, textLen - cursorPos - 1)
+            return TextareaState(before + after, cursorPos, state.scrollOffset, true)
+        }
+        return state
+    }
+
+    // Enter - insert newline
+    if scancode == KEY_RETURN {
+        before := substr(text, 0, cursorPos)
+        after := substr(text, cursorPos, textLen - cursorPos)
+        return TextareaState(before + "\n" + after, cursorPos + 1, state.scrollOffset, true)
+    }
+
+    // Left arrow - move cursor left
+    if scancode == KEY_LEFT {
+        if cursorPos > 0 {
+            return TextareaState(text, cursorPos - 1, state.scrollOffset, true)
+        }
+        return state
+    }
+
+    // Right arrow - move cursor right
+    if scancode == KEY_RIGHT {
+        if cursorPos < textLen {
+            return TextareaState(text, cursorPos + 1, state.scrollOffset, true)
+        }
+        return state
+    }
+
+    // Home - move cursor to start
+    if scancode == KEY_HOME {
+        return TextareaState(text, 0, state.scrollOffset, true)
+    }
+
+    // End - move cursor to end
+    if scancode == KEY_END {
+        return TextareaState(text, textLen, state.scrollOffset, true)
+    }
+
+    return state
+}
